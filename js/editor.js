@@ -179,10 +179,18 @@ async function uploadToDrive(file) {
 
 // ── Load GLB into scene ──
 function loadGLB(fileId) {
-  return new Promise((resolve, reject) => {
-    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${CONFIG.API_KEY}`;
-    new THREE.GLTFLoader().load(url, (gltf) => {
-      const model = gltf.scene;
+  return new Promise(async (resolve, reject) => {
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (!res.ok) throw new Error(`Drive fetch ${res.status}`);
+      const blobUrl = URL.createObjectURL(await res.blob());
+
+      new THREE.GLTFLoader().load(blobUrl, (gltf) => {
+        URL.revokeObjectURL(blobUrl);
+        const model = gltf.scene;
 
       // 뷰어와 동일한 정규화: 크기 1 기준, 중심 원점
       const box    = new THREE.Box3().setFromObject(model);
@@ -201,16 +209,15 @@ function loadGLB(fileId) {
         }
       });
 
-      scene.add(model);
+        scene.add(model);
 
-      // orbit 중심을 원점(정규화된 모델 중심)으로
-      orbit.target.set(0, 0, 0);
-      const ns = size.clone().multiplyScalar(scale);
-      camera.position.set(0, ns.y * 0.3, Math.max(ns.x, ns.z) * 2.2);
-      orbit.update();
+        const ns = size.clone().multiplyScalar(scale);
+        camera.position.set(0, ns.y * 0.3, Math.max(ns.x, ns.z) * 2.2);
+        camera.lookAt(0, 0, 0);
 
-      resolve();
-    }, undefined, reject);
+        resolve();
+      }, undefined, (err) => { URL.revokeObjectURL(blobUrl); reject(err); });
+    } catch (err) { reject(err); }
   });
 }
 
