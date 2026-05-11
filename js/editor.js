@@ -116,20 +116,40 @@ document.getElementById('btn-google-login').addEventListener('click', () => {
     callback: (res) => {
       if (res.error) { console.error(res); return; }
       accessToken = res.access_token;
-      document.getElementById('btn-google-login').style.display = 'none';
-      document.getElementById('login-status').style.display = 'block';
-
-      // fetch user info
-      fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      }).then(r => r.json()).then(u => {
-        document.getElementById('login-name').textContent = u.name || u.email;
-        window._userName = u.name || u.email;
-      });
+      localStorage.setItem('gtoken', accessToken);
+      localStorage.setItem('gtoken_exp', Date.now() + (res.expires_in - 60) * 1000);
+      showLoggedIn();
     },
   });
   client.requestAccessToken();
 });
+
+function showLoggedIn() {
+  document.getElementById('btn-google-login').style.display = 'none';
+  document.getElementById('login-status').style.display = 'block';
+  fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  }).then(r => r.json()).then(u => {
+    document.getElementById('login-name').textContent = u.name || u.email;
+    window._userName = u.name || u.email;
+  }).catch(() => {
+    // 토큰 만료 — 다시 로그인
+    localStorage.removeItem('gtoken');
+    localStorage.removeItem('gtoken_exp');
+    document.getElementById('btn-google-login').style.display = 'block';
+    document.getElementById('login-status').style.display = 'none';
+  });
+}
+
+// 페이지 로드 시 저장된 토큰 복원
+(function restoreToken() {
+  const token = localStorage.getItem('gtoken');
+  const exp   = parseInt(localStorage.getItem('gtoken_exp') || '0');
+  if (token && Date.now() < exp) {
+    accessToken = token;
+    showLoggedIn();
+  }
+})();
 
 // ── Step 1: File select & upload ──
 document.getElementById('btn-select-file').addEventListener('click', () => {
