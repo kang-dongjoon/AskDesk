@@ -1,3 +1,15 @@
+// ── Hero title: 뷰포트 폭에 꽉 차게 ──
+function fitHero() {
+  const el = document.querySelector('.hero');
+  if (!el) return;
+  el.style.fontSize = '100px';
+  const availW = window.innerWidth - 48; // padding 24px * 2
+  const scale  = availW / el.scrollWidth;
+  el.style.fontSize = Math.floor(100 * scale) + 'px';
+}
+window.addEventListener('resize', fitHero);
+fitHero();
+
 // ── Panel ──
 const panel   = document.getElementById('panel');
 const page    = document.getElementById('page');
