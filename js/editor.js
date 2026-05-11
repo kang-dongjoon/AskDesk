@@ -144,14 +144,31 @@ function loadGLB(fileId) {
   return new Promise((resolve, reject) => {
     const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${CONFIG.API_KEY}`;
     new THREE.GLTFLoader().load(url, (gltf) => {
-      scene.add(gltf.scene);
+      const model = gltf.scene;
 
-      // center camera on model
-      const box    = new THREE.Box3().setFromObject(gltf.scene);
-      const center = box.getCenter(new THREE.Vector3());
+      // 뷰어와 동일한 정규화: 크기 1 기준, 중심 원점
+      const box    = new THREE.Box3().setFromObject(model);
       const size   = box.getSize(new THREE.Vector3());
-      orbit.target.copy(center);
-      camera.position.copy(center).add(new THREE.Vector3(0, size.y, size.z * 2));
+      const center = box.getCenter(new THREE.Vector3());
+      const scale  = 1.0 / Math.max(size.x, size.y, size.z);
+      model.scale.setScalar(scale);
+      model.position.sub(center.multiplyScalar(scale));
+
+      // 모든 메쉬 DoubleSide → 뒷면도 raycasting 가능
+      model.traverse(c => {
+        if (c.isMesh) {
+          c.material = Array.isArray(c.material)
+            ? c.material.map(m => { const n = m.clone(); n.side = THREE.DoubleSide; return n; })
+            : (() => { const n = c.material.clone(); n.side = THREE.DoubleSide; return n; })();
+        }
+      });
+
+      scene.add(model);
+
+      // orbit 중심을 원점(정규화된 모델 중심)으로
+      orbit.target.set(0, 0, 0);
+      const ns = size.clone().multiplyScalar(scale);
+      camera.position.set(0, ns.y * 0.3, Math.max(ns.x, ns.z) * 2.2);
       orbit.update();
 
       resolve();
@@ -178,16 +195,20 @@ renderer.domElement.addEventListener('click', (e) => {
   mouse.y = -(e.clientY / innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
 
-  const meshes = [];
-  scene.traverse(c => { if (c.isMesh && !c.userData.isMarker) meshes.push(c); });
-  const hits = raycaster.intersectObjects(meshes, true);
+  const hits = raycaster.intersectObject(scene, true)
+    .filter(h => !h.object.userData.isMarker);
+
   if (!hits.length) return;
 
   const pt = hits[0].point;
 
-  // place temporary marker
-  const mat    = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-  const marker = new THREE.Mesh(markerGeo.clone(), mat);
+  // 클릭 피드백: 화면 잠깐 밝아짐
+  renderer.domElement.style.filter = 'brightness(1.4)';
+  setTimeout(() => renderer.domElement.style.filter = '', 120);
+
+  // 마커 (노란 구체, 크게)
+  const mat    = new THREE.MeshBasicMaterial({ color: 0xffee00 });
+  const marker = new THREE.Mesh(new THREE.SphereGeometry(0.018, 14, 14), mat);
   marker.position.copy(pt);
   marker.userData.isMarker = true;
   scene.add(marker);
