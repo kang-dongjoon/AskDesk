@@ -84,16 +84,9 @@ canvas.addEventListener('touchend', () => { isDragging = false; });
 
 applyCamera();
 
-function updateVision() {
-  if (window.Viewer && Viewer.setVisionRadius) {
-    Viewer.setVisionRadius(0.07 + pathT * 1.05);
-  }
-}
-
 function applyCamera() {
   const cam = Viewer.camera;
   camPath.getPoint(pathT, cam.position);
-  updateVision();
 
   const baseLook = new THREE.Vector3();
   lookPath.getPoint(pathT, baseLook);
