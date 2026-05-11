@@ -278,6 +278,11 @@ async function verifyLandingEditPin() {
 
   try {
     const desks = currentDesks.length ? currentDesks : await CMS.fetchDesks();
+    const hasAnyEditableDesk = desks.some((item) => item.desk_id);
+    if (!hasAnyEditableDesk) {
+      progress.textContent = '아직 등록된 책상이 없습니다. 먼저 업로드해주세요.';
+      return;
+    }
     const desk = desks.slice().reverse().find((item) => {
       return (item.desk_id || '').split('-').pop() === pin;
     });
@@ -303,6 +308,7 @@ function rand(seed) {
 
 // ── Thumbnails ──
 let currentDesks = [];
+let currentVisibleDesks = [];
 const thumbViews = [];
 const thumbQueue = [];
 let activeThumbLoads = 0;
@@ -363,6 +369,8 @@ function createThumbs(desks) {
     seenDeskIds.add(desk.desk_id);
     visibleDesks.push(desk);
   });
+  currentVisibleDesks = visibleDesks;
+  document.body.classList.toggle('is-empty-collection', visibleDesks.length === 0);
   visibleDesks.forEach((desk, i) => {
     const el = document.createElement('div');
     el.className = 'thumb';
@@ -386,7 +394,8 @@ function layoutThumbs() {
   const container = document.getElementById('thumbs');
   const activeViews = thumbViews.filter(Boolean);
   const W = getStageWidth();
-  const H = getLandingMetrics().thumbAreaHeight;
+  const hasVisibleDesks = currentVisibleDesks.length > 0;
+  const H = hasVisibleDesks ? getLandingMetrics().thumbAreaHeight : 0;
   const count = Math.max(activeViews.length, 1);
   const columns = W >= 920 ? 3 : W >= 620 ? 2 : 1;
 
@@ -397,6 +406,7 @@ function layoutThumbs() {
 
   container.style.width = `${W}px`;
   container.style.height = `${H}px`;
+  if (!hasVisibleDesks) return;
 
   activeViews.forEach((view, i) => {
     const el = view.container;

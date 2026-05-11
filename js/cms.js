@@ -1,6 +1,9 @@
 function parseCSV(text) {
-  const lines = text.trim().split('\n');
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const lines = trimmed.split('\n');
   const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+  if (!headers[0]) return [];
   return lines.slice(1).map(line => {
     const values = [];
     let cur = '', inQ = false;

@@ -232,6 +232,10 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
   margin-bottom: var(--thumb-title-gap, 240px);
 }
 
+body.is-empty-collection #thumbs {
+  margin-bottom: 0;
+}
+
 .thumb {
   position: absolute;
   cursor: pointer;
