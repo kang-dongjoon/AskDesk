@@ -234,7 +234,7 @@ function escapeHtml(value) {
 function showPanelObject(obj) {
   const container = document.getElementById('panel-objects');
   if (!obj) {
-    document.getElementById('panel-desk-info').textContent = '사물 위에 커서를 올리세요.';
+    document.getElementById('panel-desk-info').textContent = '사물 위에 커서를 올려보세요.';
     container.innerHTML = '';
     return;
   }

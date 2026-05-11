@@ -145,12 +145,10 @@ document.getElementById('landing-file-input')?.addEventListener('change', async 
   if (!file) return;
 
   const progress = document.getElementById('landing-upload-progress');
-  progress.style.display = 'block';
-  progress.textContent = '업로드 중...';
+  progress.style.display = 'none';
 
   try {
     const driveFileId = await uploadLandingGLB(file);
-    progress.textContent = '업로드 완료. 에디터로 이동 중...';
     window.location.href = `editor.html?file=${encodeURIComponent(driveFileId)}`;
   } catch (err) {
     console.error(err);
@@ -311,8 +309,13 @@ let currentDesks = [];
 let currentVisibleDesks = [];
 const thumbViews = [];
 const thumbQueue = [];
+const noteCountCache = new Map();
 let activeThumbLoads = 0;
+let hoveredThumbDeskId = null;
 const MAX_THUMB_LOADS = 2;
+const thumbTooltip = document.createElement('div');
+thumbTooltip.id = 'thumb-tooltip';
+document.body.appendChild(thumbTooltip);
 
 function enqueueThumbLoad(task) {
   thumbQueue.push(task);
@@ -385,9 +388,49 @@ function createThumbs(desks) {
       window.location.href = `viewer.html?desk=${encodeURIComponent(desk.desk_id)}`;
     });
 
+    el.addEventListener('mouseenter', async (event) => {
+      hoveredThumbDeskId = desk.desk_id;
+      moveThumbTooltip(event);
+      showThumbTooltip('노트 확인 중...');
+      try {
+        const count = await getNoteCount(desk.desk_id);
+        if (hoveredThumbDeskId !== desk.desk_id) return;
+        showThumbTooltip(`${count}개의 Note`);
+      } catch (err) {
+        console.warn('note count failed', desk.desk_id, err);
+        hideThumbTooltip();
+      }
+    });
+
+    el.addEventListener('mousemove', moveThumbTooltip);
+    el.addEventListener('mouseleave', hideThumbTooltip);
+
     container.appendChild(el);
     thumbViews[i] = renderDeskThumb(el, desk, i);
   });
+}
+
+async function getNoteCount(deskId) {
+  if (noteCountCache.has(deskId)) return noteCountCache.get(deskId);
+  const objects = await CMS.fetchObjects(deskId);
+  const count = objects.filter(obj => obj.object_id || obj.name || obj.memory_note).length;
+  noteCountCache.set(deskId, count);
+  return count;
+}
+
+function showThumbTooltip(text) {
+  thumbTooltip.textContent = text;
+  thumbTooltip.style.display = 'block';
+}
+
+function hideThumbTooltip() {
+  hoveredThumbDeskId = null;
+  thumbTooltip.style.display = 'none';
+}
+
+function moveThumbTooltip(event) {
+  thumbTooltip.style.left = `${event.clientX + 14}px`;
+  thumbTooltip.style.top = `${event.clientY + 14}px`;
 }
 
 function layoutThumbs() {

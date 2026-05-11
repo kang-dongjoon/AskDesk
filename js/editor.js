@@ -159,15 +159,15 @@ function setStep(name) {
 
   if (name === 'upload') {
     document.getElementById('step-upload').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = '01 — upload';
+    document.getElementById('step-indicator').textContent = '';
   } else if (name === 'viewpoint') {
     document.getElementById('step-viewpoint').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = '02 — viewpoint';
+    document.getElementById('step-indicator').textContent = '1 View';
     orbitVertOffset = 0;
     orbit.enabled = true;
   } else if (name === 'points') {
     document.getElementById('step-points').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = '03 — objects';
+    document.getElementById('step-indicator').textContent = '2 Note';
     document.getElementById('crosshair').style.display = 'block';
     orbit.enabled = false;
     lookMode = true;
@@ -179,7 +179,7 @@ function setStep(name) {
     lookVertOffset = 0;
   } else if (name === 'submit') {
     document.getElementById('step-submit').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = '04 — submit';
+    document.getElementById('step-indicator').textContent = 'Save';
     orbit.enabled = false;
     lookMode = false;
     buildSubmitPreview();
@@ -187,10 +187,20 @@ function setStep(name) {
 }
 
 document.getElementById('btn-back').addEventListener('click', e => {
-  if (currentStep === 'points') {
-    e.preventDefault();
-    setStep('viewpoint');
+  e.preventDefault();
+  if (currentStep === 'submit') {
+    setStep('points');
+    return;
   }
+  if (currentStep === 'points') {
+    setStep('viewpoint');
+    return;
+  }
+  if (currentStep === 'viewpoint') {
+    setStep('upload');
+    return;
+  }
+  history.length > 1 ? history.back() : location.assign('index.html');
 });
 
 // ── Step 1: Google login ──
@@ -289,16 +299,15 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
-  document.getElementById('upload-progress').style.display = 'block';
-  document.getElementById('upload-progress').textContent = '업로드 중…';
+  document.getElementById('upload-progress').style.display = 'none';
 
   try {
     driveFileId = await uploadToDrive(file);
-    document.getElementById('upload-progress').textContent = '업로드 완료. GLB/GLTF 로드 중…';
     await loadGLB(driveFileId);
     setStep('viewpoint');
   } catch (err) {
     console.error(err);
+    document.getElementById('upload-progress').style.display = 'block';
     document.getElementById('upload-progress').textContent = '오류: ' + err.message;
   }
 });
@@ -538,12 +547,12 @@ function buildSubmitPreview() {
   const pinInput = document.getElementById('pin-input');
   if (editDeskId) {
     pinInput.style.display = 'none';
-    el.textContent = `책상 1개 · 포인트 ${points.length}개 수정 준비됨`;
+    el.textContent = `책상 1개 · 노트 ${points.length}개 수정 준비됨`;
     return;
   }
 
   pinInput.style.display = 'block';
-  el.innerHTML = `책상 1개 · 포인트 ${points.length}개 준비됨<br>편집을 위한 비밀번호 4자리를 설정해주세요.`;
+  el.innerHTML = `책상 1개 · 노트 ${points.length}개 준비됨<br>편집을 위한 비밀번호 4자리를 설정해주세요.`;
 }
 
 // ── Submit to Apps Script ──
@@ -607,12 +616,15 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
     });
 
     const saved = await waitForDeskSaved(deskId);
-    document.getElementById('submit-status').textContent = saved
-      ? '제출 완료!'
-      : '전송은 완료됐지만 시트 반영을 확인하지 못했습니다.';
-    btn.textContent = '홈으로';
-    btn.disabled = false;
-    btn.addEventListener('click', () => location.href = 'index.html', { once: true });
+    if (saved) {
+      document.getElementById('submit-status').textContent = '저장 완료!';
+      window.setTimeout(() => {
+        location.href = 'index.html';
+      }, 1000);
+    } else {
+      document.getElementById('submit-status').textContent = '전송은 완료됐지만 시트 반영을 확인하지 못했습니다.';
+      btn.disabled = false;
+    }
   } catch (err) {
     console.error(err);
     document.getElementById('submit-status').textContent = '오류가 발생했습니다. 다시 시도해주세요.';

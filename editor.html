@@ -52,7 +52,7 @@
 
     #step-indicator {
       display: inline-block;
-      justify-self: center;
+      justify-self: end;
       font-size: 12px;
       letter-spacing: .14em;
       text-transform: uppercase;
@@ -65,11 +65,6 @@
 
     #step-indicator:empty {
       visibility: hidden;
-    }
-
-    #editor-nav-spacer {
-      visibility: hidden;
-      pointer-events: none;
     }
 
     /* ── Upload screen ── */
@@ -283,8 +278,8 @@
 
     .date-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 78px;
-      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) 104px;
+      gap: 14px;
       align-items: center;
     }
 
@@ -297,7 +292,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: flex-end;
-      gap: 4px;
+      gap: 8px;
       font-size: 11px;
       letter-spacing: 0;
       text-transform: none;
@@ -323,9 +318,9 @@
 
 <div id="ui">
   <nav id="editor-nav">
-    <a href="index.html" class="nav-btn-editor" id="btn-back">Back</a>
+    <button class="nav-btn-editor" id="btn-back" type="button">Back</button>
+    <span></span>
     <span id="step-indicator"></span>
-    <span class="nav-btn-editor" id="editor-nav-spacer">Back</span>
   </nav>
 
   <!-- Step 1: Upload -->
@@ -342,20 +337,20 @@
         </div>
       </div>
       <input type="file" id="file-input" accept=".glb,.gltf,model/gltf-binary,model/gltf+json">
-      <div id="upload-progress">업로드 중…</div>
+      <div id="upload-progress"></div>
     </div>
   </div>
 
   <!-- Step 2: Viewpoint -->
   <div class="bottom-bar" id="step-viewpoint">
-    <p>드래그로 시점을 잡고 저장하세요.</p>
-    <button class="btn-ghost" id="btn-save-viewpoint">시점 저장</button>
+    <p>드래그로 View를 잡고 저장하세요.</p>
+    <button class="btn-ghost" id="btn-save-viewpoint">View 저장</button>
   </div>
 
   <!-- Step 3: Points -->
   <div class="bottom-bar" id="step-points">
-    <p>사물을 클릭해 포인트를 지정하세요.</p>
-    <button class="btn-ghost" id="btn-done-points">완료 · 제출하기</button>
+    <p>사물을 클릭해 노트를 작성하세요.</p>
+    <button class="btn-ghost" id="btn-done-points">완료</button>
   </div>
 
   <!-- Metadata form -->
@@ -373,7 +368,7 @@
       </div>
     </div>
     <div class="field">
-      <label>기억 메모</label>
+      <label>메모</label>
       <textarea id="f-memo" placeholder="이 사물에서 떠오르는 기억…"></textarea>
     </div>
     <div class="form-actions">
@@ -389,7 +384,7 @@
       style="width:80px;text-align:center;border:1px solid #111;
              background:#fff;color:#111;font:inherit;font-size:18px;
              padding:6px;letter-spacing:.2em;outline:none;">
-    <button class="btn-ghost" id="btn-submit">제출</button>
+    <button class="btn-ghost" id="btn-submit">저장</button>
   </div>
 
   <div id="crosshair"></div>

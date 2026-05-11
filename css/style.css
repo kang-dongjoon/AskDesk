@@ -282,6 +282,21 @@ body.is-empty-collection #thumbs {
   display: none;
 }
 
+#thumb-tooltip {
+  position: fixed;
+  z-index: 120;
+  display: none;
+  border: 1px solid #111;
+  background: #fff;
+  color: #111;
+  padding: 8px 12px;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 /* 타이틀: JS로 폭 자동 fit */
 .hero {
   font-size: var(--hero-size, 150px);
@@ -438,8 +453,17 @@ body.is-empty-collection #thumbs {
 #panel-edit-row {
   padding: 20px 24px;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
   border-top: 1px solid #111;
+}
+
+#panel-edit-row p {
+  max-width: 150px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #111;
 }
 
 /* ── LOADING ── */
