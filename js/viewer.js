@@ -46,7 +46,7 @@ async function init() {
   let desk, objects;
   try {
     const desks = await CMS.fetchDesks();
-    desk = desks.find(d => d.desk_id === deskId);
+    desk = [...desks].reverse().find(d => d.desk_id === deskId);
     objects = await CMS.fetchObjects(deskId);
   } catch (e) {
     console.error(e);
