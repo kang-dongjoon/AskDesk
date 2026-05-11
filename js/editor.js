@@ -5,6 +5,15 @@ let savedPos     = null;
 let savedTarget  = null;
 let pendingPoint = null;   // {position, marker}
 const points     = [];     // [{position, meta, marker}]
+const params     = new URLSearchParams(location.search);
+const isEditMode = params.has('edit');
+const editStartMode = params.get('mode');
+const initialDriveFileId = params.get('file');
+const initialEditPin = params.get('pin');
+let editDeskId   = params.get('edit');
+let editDesk     = null;
+let editObjects  = [];
+let currentStep  = 'upload';
 
 // ── Three.js setup ──
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -30,6 +39,7 @@ scene.add(dirLight);
 const orbit = new THREE.OrbitControls(camera, renderer.domElement);
 orbit.enableDamping = true;
 orbit.dampingFactor = 0.08;
+orbit.rotateSpeed = 1;
 orbit.enabled = false;
 
 // ── Look-only mode (포인트 지정 단계) ──
@@ -37,6 +47,20 @@ let lookMode = false;
 let lookYaw = 0, lookPitch = 0;
 let lookDrag = false, lookLX = 0, lookLY = 0;
 let downX = 0, downY = 0, movedPx = 0;
+let lookBaseY = 0;
+let lookVertOffset = 0;
+let orbitVertOffset = 0;
+const LOOK_VERTICAL_SPEED = 0.003;
+const LOOK_VERTICAL_RANGE = 0.175;
+const lookVerticalKeys = { down: false, up: false };
+let editingPoint = null;
+
+function isTextInputActive() {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName?.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || el.isContentEditable;
+}
 
 renderer.domElement.addEventListener('mousedown', e => {
   if (!lookMode) return;
@@ -55,14 +79,15 @@ renderer.domElement.addEventListener('mousemove', e => {
   if (!lookMode || !lookDrag) return;
   const rect = renderer.domElement.getBoundingClientRect();
   movedPx   = Math.hypot(e.clientX - downX, e.clientY - downY);
-  lookYaw  -= (e.clientX - lookLX) / rect.width  * 2.5;
-  lookPitch -= (e.clientY - lookLY) / rect.height * 2.0;
+  lookYaw  += (e.clientX - lookLX) / rect.width  * 2.5;
+  lookPitch += (e.clientY - lookLY) / rect.height * 2.0;
   lookPitch  = Math.max(-1.4, Math.min(1.4, lookPitch));
   lookLX = e.clientX; lookLY = e.clientY;
   applyLook();
 });
 
 function applyLook() {
+  camera.position.y = lookBaseY + lookVertOffset;
   const fwd = new THREE.Vector3(
     Math.sin(lookYaw) * Math.cos(lookPitch),
     Math.sin(lookPitch),
@@ -70,6 +95,31 @@ function applyLook() {
   );
   camera.lookAt(camera.position.clone().add(fwd));
 }
+
+document.addEventListener('keydown', e => {
+  if (isTextInputActive()) return;
+  if (!lookMode && !orbit.enabled) return;
+  if (e.code === 'KeyQ' || e.key.toLowerCase() === 'q') {
+    e.preventDefault();
+    lookVerticalKeys.down = true;
+  } else if (e.code === 'KeyE' || e.key.toLowerCase() === 'e') {
+    e.preventDefault();
+    lookVerticalKeys.up = true;
+  }
+}, true);
+
+document.addEventListener('keyup', e => {
+  if (isTextInputActive()) {
+    lookVerticalKeys.down = false;
+    lookVerticalKeys.up = false;
+    return;
+  }
+  if (e.code === 'KeyQ' || e.key.toLowerCase() === 'q') {
+    lookVerticalKeys.down = false;
+  } else if (e.code === 'KeyE' || e.key.toLowerCase() === 'e') {
+    lookVerticalKeys.up = false;
+  }
+}, true);
 
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -79,24 +129,41 @@ window.addEventListener('resize', () => {
 
 (function loop() {
   requestAnimationFrame(loop);
+  if (lookVerticalKeys.down || lookVerticalKeys.up) {
+    const direction = (lookVerticalKeys.up ? 1 : 0) - (lookVerticalKeys.down ? 1 : 0);
+    if (lookMode) {
+      lookVertOffset = Math.max(-LOOK_VERTICAL_RANGE, Math.min(LOOK_VERTICAL_RANGE, lookVertOffset + direction * LOOK_VERTICAL_SPEED));
+      applyLook();
+    } else if (orbit.enabled) {
+      const nextOffset = Math.max(-LOOK_VERTICAL_RANGE, Math.min(LOOK_VERTICAL_RANGE, orbitVertOffset + direction * LOOK_VERTICAL_SPEED));
+      const delta = nextOffset - orbitVertOffset;
+      orbitVertOffset = nextOffset;
+      camera.position.y += delta;
+      orbit.target.y += delta;
+    }
+  }
   if (orbit.enabled) orbit.update();
   renderer.render(scene, camera);
 })();
 
 // ── Step helpers ──
 function setStep(name) {
+  currentStep = name;
   document.getElementById('step-upload').style.display = 'none';
   ['step-viewpoint','step-points','step-submit'].forEach(id => {
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById('crosshair').style.display = 'none';
+  document.getElementById('btn-done').style.display = 'none';
   document.getElementById('step-indicator').textContent = '';
+  lookMode = false;
 
   if (name === 'upload') {
     document.getElementById('step-upload').style.display = 'flex';
   } else if (name === 'viewpoint') {
     document.getElementById('step-viewpoint').style.display = 'flex';
     document.getElementById('step-indicator').textContent = '01 — viewpoint';
+    orbitVertOffset = 0;
     orbit.enabled = true;
   } else if (name === 'points') {
     document.getElementById('step-points').style.display = 'flex';
@@ -109,6 +176,8 @@ function setStep(name) {
     camera.getWorldDirection(d);
     lookYaw   = Math.atan2(d.x, d.z);
     lookPitch = Math.asin(Math.max(-1, Math.min(1, d.y)));
+    lookBaseY = camera.position.y;
+    lookVertOffset = 0;
   } else if (name === 'submit') {
     document.getElementById('step-submit').style.display = 'flex';
     document.getElementById('step-indicator').textContent = '03 — submit';
@@ -117,6 +186,13 @@ function setStep(name) {
     buildSubmitPreview();
   }
 }
+
+document.getElementById('btn-back').addEventListener('click', e => {
+  if (currentStep === 'points') {
+    e.preventDefault();
+    setStep('viewpoint');
+  }
+});
 
 // ── Step 1: Google login ──
 document.getElementById('btn-google-login').addEventListener('click', () => {
@@ -151,6 +227,50 @@ function showLoggedIn() {
   });
 }
 
+function showEditPinStep() {
+  setStep('upload');
+  document.querySelector('#step-upload h2').textContent = 'Edit — Desk';
+  document.querySelector('#step-upload .sub').innerHTML = '편집을 위한 비밀번호 4자리를 입력해주세요.<br>비밀번호가 일치하는 최신 책상을 불러옵니다.';
+  document.getElementById('upload-area').innerHTML = `
+    <input id="edit-pin-input" class="pin-entry" type="password" maxlength="4" inputmode="numeric" placeholder="0000">
+    <button class="btn" id="btn-load-edit">불러오기</button>
+    <div id="upload-progress">불러오는 중...</div>
+  `;
+
+  document.getElementById('btn-load-edit').addEventListener('click', async () => {
+    const pin = document.getElementById('edit-pin-input').value.trim();
+    if (pin.length !== 4) {
+      alert('편집을 위한 비밀번호 4자리를 입력해주세요.');
+      return;
+    }
+    await loadEditByPin(pin);
+  });
+}
+
+async function loadEditByPin(pin) {
+  const progress = document.getElementById('upload-progress');
+  progress.style.display = 'block';
+  progress.textContent = '책상 찾는 중...';
+
+  try {
+    const desks = await CMS.fetchDesks();
+    const desk = desks.slice().reverse().find((item) => {
+      return (item.desk_id || '').split('-').pop() === pin;
+    });
+
+    if (!desk) {
+      progress.textContent = '비밀번호가 일치하는 책상을 찾을 수 없습니다.';
+      return;
+    }
+
+    editDeskId = desk.desk_id;
+    await loadEditDesk();
+  } catch (err) {
+    console.error(err);
+    progress.textContent = '책상 목록을 불러올 수 없습니다.';
+  }
+}
+
 // 페이지 로드 시 저장된 토큰 복원
 (function restoreToken() {
   const token = localStorage.getItem('gtoken');
@@ -175,7 +295,7 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
 
   try {
     driveFileId = await uploadToDrive(file);
-    document.getElementById('upload-progress').textContent = '업로드 완료. GLB 로드 중…';
+    document.getElementById('upload-progress').textContent = '업로드 완료. GLB/GLTF 로드 중…';
     await loadGLB(driveFileId);
     setStep('viewpoint');
   } catch (err) {
@@ -201,19 +321,22 @@ async function uploadToDrive(file) {
   await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+    body: JSON.stringify({ role: 'reader', type: 'anyone', allowFileDiscovery: false }),
   });
 
   return data.id;
 }
 
 // ── Load GLB into scene ──
-function loadGLB(fileId) {
+function loadGLB(fileId, options = {}) {
   return new Promise(async (resolve, reject) => {
     try {
+      const fetchOptions = accessToken
+        ? { headers: { Authorization: `Bearer ${accessToken}` } }
+        : {};
       const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${accessToken ? '' : `&key=${CONFIG.API_KEY}`}`,
+        fetchOptions
       );
       if (!res.ok) throw new Error(`Drive fetch ${res.status}`);
       const blobUrl = URL.createObjectURL(await res.blob());
@@ -237,8 +360,13 @@ function loadGLB(fileId) {
           c.material = Array.isArray(c.material) ? c.material.map(fix) : fix(c.material);
         });
 
-        orbit.target.copy(center);
-        camera.position.set(center.x, center.y + maxDim * 0.5, center.z + maxDim * 2.0);
+        if (options.cameraPos && options.cameraTarget) {
+          camera.position.copy(options.cameraPos);
+          orbit.target.copy(options.cameraTarget);
+        } else {
+          orbit.target.copy(center);
+          camera.position.set(center.x, center.y + maxDim * 0.5, center.z + maxDim * 2.0);
+        }
         orbit.update();
 
         resolve();
@@ -284,6 +412,25 @@ function createMarker() {
   return sprite;
 }
 
+function seedExistingPoint(obj) {
+  const x = parseFloat(obj.x), y = parseFloat(obj.y), z = parseFloat(obj.z);
+  if ([x, y, z].some(Number.isNaN)) return;
+
+  const marker = createMarker();
+  marker.material.map = makeMarkerTexture('!');
+  marker.material.map.needsUpdate = true;
+  marker.position.set(x, y, z);
+  scene.add(marker);
+
+  points.push({
+    position: marker.position.clone(),
+    marker,
+    name: obj.name || '',
+    date: obj.collected_date || '',
+    memo: obj.memory_note || '',
+  });
+}
+
 // ── Step 3: Raycasting for point placement ──
 const raycaster = new THREE.Raycaster();
 const mouse     = new THREE.Vector2();
@@ -297,6 +444,13 @@ function placePoint(e) {
   mouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
   mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
+
+  const markerHits = raycaster.intersectObjects(points.map(p => p.marker), false);
+  if (markerHits.length) {
+    const point = points.find(p => p.marker === markerHits[0].object);
+    if (point) openMetaForm(point);
+    return;
+  }
 
   const meshes = [];
   scene.traverse(c => { if (c.isMesh && !c.userData.isMarker) meshes.push(c); });
@@ -317,26 +471,51 @@ function placePoint(e) {
 }
 
 // ── Metadata form ──
-function openMetaForm() {
+function setDateFields(value) {
+  const dateInput = document.getElementById('f-date');
+  const unknownInput = document.getElementById('f-date-unknown');
+  const isUnknown = value === '알 수 없음';
+  unknownInput.checked = isUnknown;
+  dateInput.disabled = isUnknown;
+  dateInput.value = isUnknown ? '' : (value || '').slice(0, 7);
+}
+
+function getDateValue() {
+  if (document.getElementById('f-date-unknown').checked) return '알 수 없음';
+  return document.getElementById('f-date').value;
+}
+
+function openMetaForm(point = null) {
+  editingPoint = point;
   const form = document.getElementById('meta-form');
   form.style.display = 'flex';
   form.style.flexDirection = 'column';
-  document.getElementById('f-name').value  = '';
-  document.getElementById('f-date').value  = '';
-  document.getElementById('f-memo').value  = '';
+  document.getElementById('f-name').value  = point?.name || '';
+  setDateFields(point?.date || '');
+  document.getElementById('f-memo').value  = point?.memo || '';
 }
 
 document.getElementById('btn-meta-cancel').addEventListener('click', () => {
   if (pendingPoint) { scene.remove(pendingPoint.marker); pendingPoint = null; }
+  editingPoint = null;
   document.getElementById('meta-form').style.display = 'none';
 });
 
 document.getElementById('btn-meta-save').addEventListener('click', () => {
-  if (!pendingPoint) return;
   const name = document.getElementById('f-name').value.trim();
-  const date = document.getElementById('f-date').value;
+  const date = getDateValue();
   const memo = document.getElementById('f-memo').value.trim();
 
+  if (editingPoint) {
+    editingPoint.name = name;
+    editingPoint.date = date;
+    editingPoint.memo = memo;
+    editingPoint = null;
+    document.getElementById('meta-form').style.display = 'none';
+    return;
+  }
+
+  if (!pendingPoint) return;
   // ? → ! 로 교체
   pendingPoint.marker.material.map = makeMarkerTexture('!');
   pendingPoint.marker.material.map.needsUpdate = true;
@@ -345,13 +524,27 @@ document.getElementById('btn-meta-save').addEventListener('click', () => {
   document.getElementById('meta-form').style.display = 'none';
 });
 
+document.getElementById('f-date-unknown').addEventListener('change', e => {
+  const dateInput = document.getElementById('f-date');
+  dateInput.disabled = e.target.checked;
+  if (e.target.checked) dateInput.value = '';
+});
+
 // ── Step 3: Done ──
 document.getElementById('btn-done-points').addEventListener('click', () => setStep('submit'));
 
 // ── Submit preview ──
 function buildSubmitPreview() {
   const el = document.getElementById('submit-status');
-  el.textContent = `책상 1개 · 포인트 ${points.length}개 준비됨`;
+  const pinInput = document.getElementById('pin-input');
+  if (editDeskId) {
+    pinInput.style.display = 'none';
+    el.textContent = `책상 1개 · 포인트 ${points.length}개 수정 준비됨`;
+    return;
+  }
+
+  pinInput.style.display = 'block';
+  el.innerHTML = `책상 1개 · 포인트 ${points.length}개 준비됨<br>편집을 위한 비밀번호 4자리를 설정해주세요.`;
 }
 
 // ── Submit to Apps Script ──
@@ -361,14 +554,33 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
   btn.disabled = true;
 
   const pin    = String(document.getElementById('pin-input').value || '0000').slice(0, 4).padStart(4, '0');
+  if (!editDeskId) {
+    try {
+      const desks = await CMS.fetchDesks();
+      const isUsed = desks.some((item) => (item.desk_id || '').split('-').pop() === pin);
+      if (isUsed) {
+        document.getElementById('submit-status').textContent = '이미 사용중인 번호입니다.';
+        btn.textContent = '제출';
+        btn.disabled = false;
+        return;
+      }
+    } catch (err) {
+      console.error(err);
+      document.getElementById('submit-status').textContent = '비밀번호 중복 여부를 확인하지 못했습니다. 다시 시도해주세요.';
+      btn.textContent = '제출';
+      btn.disabled = false;
+      return;
+    }
+  }
+
   const uuid   = crypto.randomUUID ? crypto.randomUUID().split('-')[0] : Date.now().toString(36);
-  const deskId = `${uuid}-${pin}`;
+  const deskId = editDeskId || `${uuid}-${pin}`;
 
   const payload = {
     desk: {
       desk_id:      deskId,
-      owner:        window._userName || '익명',
-      drive_file_id: driveFileId,
+      owner:        '',
+      drive_file_id: driveFileId || editDesk?.drive_file_id,
       cam_pos_x:    savedPos.x,
       cam_pos_y:    savedPos.y,
       cam_pos_z:    savedPos.z,
@@ -390,13 +602,18 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
   };
 
   try {
+    document.getElementById('submit-status').textContent = '시트에 기록 중...';
     await fetch(CONFIG.APPS_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload),
     });
-    document.getElementById('submit-status').textContent = '제출 완료!';
+
+    const saved = await waitForDeskSaved(deskId);
+    document.getElementById('submit-status').textContent = saved
+      ? '제출 완료!'
+      : '전송은 완료됐지만 시트 반영을 확인하지 못했습니다.';
     btn.textContent = '홈으로';
     btn.disabled = false;
     btn.addEventListener('click', () => location.href = 'index.html', { once: true });
@@ -408,10 +625,111 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
   }
 });
 
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForDeskSaved(deskId) {
+  for (let i = 0; i < 8; i += 1) {
+    await wait(1200);
+    try {
+      const desks = await CMS.fetchDesks();
+      if (desks.some(d => d.desk_id === deskId)) return true;
+    } catch (err) {
+      console.warn('Save verification failed', err);
+    }
+  }
+  return false;
+}
+
 // Done 버튼 = 제출
 document.getElementById('btn-done').addEventListener('click', () => {
-  document.getElementById('btn-submit').click();
+  if (document.getElementById('step-submit').style.display === 'flex') {
+    document.getElementById('btn-submit').click();
+  } else {
+    setStep('submit');
+  }
 });
 
+async function initEditMode() {
+  if (initialDriveFileId) {
+    driveFileId = initialDriveFileId;
+    document.getElementById('step-upload').style.display = 'none';
+    try {
+      await loadGLB(driveFileId);
+      setStep('viewpoint');
+    } catch (err) {
+      console.error(err);
+      alert('3D 파일을 불러오지 못했습니다.');
+      setStep('upload');
+    }
+    return;
+  }
+
+  if (!isEditMode) {
+    setStep('upload');
+    return;
+  }
+
+  if (initialEditPin && /^\d{4}$/.test(initialEditPin)) {
+    showEditPinStep();
+    document.getElementById('edit-pin-input').value = initialEditPin;
+    await loadEditByPin(initialEditPin);
+    return;
+  }
+
+  if (!editDeskId || editDeskId === '1') {
+    showEditPinStep();
+    return;
+  }
+
+  await loadEditDesk();
+}
+
+async function loadEditDesk() {
+  try {
+    const desks = await CMS.fetchDesks();
+    editDesk = desks.slice().reverse().find(d => d.desk_id === editDeskId);
+    editObjects = await CMS.fetchObjects(editDeskId);
+  } catch (err) {
+    console.error(err);
+    alert('기존 desk 데이터를 불러오지 못했습니다.');
+    setStep('upload');
+    return;
+  }
+
+  if (!editDesk) {
+    alert('편집할 desk를 찾을 수 없습니다.');
+    setStep('upload');
+    return;
+  }
+
+  driveFileId = editDesk.drive_file_id;
+  savedPos = new THREE.Vector3(
+    parseFloat(editDesk.cam_pos_x) || 0,
+    parseFloat(editDesk.cam_pos_y) || 0,
+    parseFloat(editDesk.cam_pos_z) || 0
+  );
+  savedTarget = new THREE.Vector3(
+    parseFloat(editDesk.cam_target_x) || 0,
+    parseFloat(editDesk.cam_target_y) || 0,
+    parseFloat(editDesk.cam_target_z) || 0
+  );
+  window._userName = editDesk.owner || window._userName;
+
+  document.getElementById('step-upload').style.display = 'flex';
+  document.getElementById('upload-progress').style.display = 'block';
+  document.getElementById('upload-progress').textContent = '기존 책상 로드 중...';
+
+  try {
+    await loadGLB(driveFileId, { cameraPos: savedPos, cameraTarget: savedTarget });
+    editObjects.forEach(seedExistingPoint);
+    setStep(editStartMode === 'points' ? 'points' : 'viewpoint');
+  } catch (err) {
+    console.error(err);
+    document.getElementById('upload-progress').textContent = '오류: ' + err.message;
+  }
+}
+
 // ── Init ──
-setStep('upload');
+initEditMode();

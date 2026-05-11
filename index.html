@@ -14,14 +14,47 @@
 
   <aside id="panel">
     <div id="panel-top">
-      <p>사물은 수집된다.<br>사물은 기억한다.</p>
-      <p>수집가의 작업실 책상 위 사물들을 수집하는 개인적 아카이브. 타인은 공감이나 지식보다 "질문의 전염"을 경험하게 된다.</p>
+      <p>책상은 내가 이미 모은 것들과 앞으로 모으게 될 것들이 잠시 머무는 현재 진행형의 미시세계다. 이 작은 표면을 돌아보는 일은 결국, 지금 내가 어디에 있고 무엇을 향해 가고 있는지를 다시 확인하는 일이 된다.</p>
+      <p>이 웹사이트는 책상 위를 아주 천천히 돌아다녀보려는 시도다. 스캔 데이터를 확대해서 들여다보고, 지나치던 물건들을 다시 발견하고, 잘 보이지 않던 흔적들을 찾아보자.</p>
     </div>
-    <hr id="panel-divider">
-    <div id="panel-bottom">
-      <a href="editor.html" class="nav-btn">upload</a>
+    <div id="panel-actions">
+      <button class="nav-btn panel-action" id="btn-open-upload">Upload</button>
+      <button class="nav-btn panel-action" id="btn-open-edit">Edit</button>
     </div>
   </aside>
+
+  <div id="upload-modal" aria-hidden="true">
+    <div id="upload-dialog">
+      <button id="btn-close-upload" aria-label="Close">×</button>
+      <h2>Ask — Desk</h2>
+      <p>당신의 책상을 업로드하세요.<br>3D 스캔 파일 (GLB/GLTF) 이 필요합니다.</p>
+      <div id="landing-upload-area">
+        <button class="nav-btn" id="landing-google-login">Google로 로그인</button>
+        <div id="landing-login-status">
+          <span id="landing-login-name"></span>
+          <div class="upload-choice-row">
+            <button class="nav-btn" id="landing-select-file">GLB/GLTF 파일 선택</button>
+            <a class="nav-btn" href="https://poly.cam/" target="_blank" rel="noopener">Polycam 공식 사이트</a>
+          </div>
+        </div>
+        <input type="file" id="landing-file-input" accept=".glb,.gltf,model/gltf-binary,model/gltf+json">
+        <div id="landing-upload-progress">업로드 중...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="edit-modal" aria-hidden="true">
+    <div id="edit-dialog">
+      <button id="btn-close-edit" aria-label="Close">×</button>
+      <h2>Edit — Desk</h2>
+      <p>편집을 위한 비밀번호<br>4자리를 입력해주세요.</p>
+      <div id="landing-edit-area">
+        <input id="landing-edit-pin" class="pin-entry" type="password" maxlength="4" inputmode="numeric" placeholder="0000">
+        <button class="nav-btn" id="landing-edit-submit">불러오기</button>
+        <div id="landing-edit-progress"></div>
+      </div>
+    </div>
+  </div>
 
   <div id="page">
     <section id="collection">
@@ -32,6 +65,9 @@
 
   <script src="js/config.js"></script>
   <script src="js/cms.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="js/main.js"></script>
 </body>
 </html>
