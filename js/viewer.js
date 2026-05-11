@@ -147,7 +147,15 @@ async function init() {
     return;
   }
 
-  if (!desk) { showError('책상을 찾을 수 없습니다'); return; }
+  if (!desk) {
+    showError('등록된 책상 정보를 찾을 수 없습니다');
+    return;
+  }
+
+  if (!desk.drive_file_id) {
+    showError('3D 파일이 연결되지 않았습니다');
+    return;
+  }
 
   // camera saved position
   savedPos.set(
