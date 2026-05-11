@@ -258,9 +258,11 @@ function loadGLB(fileId) {
 
         scene.add(model);
 
-        const ns = size.clone().multiplyScalar(scale);
-        camera.position.set(0, ns.y * 0.3, Math.max(ns.x, ns.z) * 2.2);
+        // 정규화 후 모델은 약 1유닛 크기, 중심 원점
+        // 약간 위+앞에서 내려다보는 시점으로 초기화
+        camera.position.set(0, 0.6, 1.4);
         camera.lookAt(0, 0, 0);
+        camera.updateMatrixWorld(true);
 
         resolve();
       }, undefined, (err) => { URL.revokeObjectURL(blobUrl); reject(err); });
@@ -280,30 +282,29 @@ document.getElementById('btn-save-viewpoint').addEventListener('click', () => {
   setStep('points');
 });
 
-// ── Marker: 흰 박스, 검은 테두리, ? ──
-function createMarker() {
-  const sz  = 128;
-  const cv  = document.createElement('canvas');
-  cv.width  = cv.height = sz;
+// ── Marker ──
+function makeMarkerTexture(char) {
+  const sz = 128;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = sz;
   const ctx = cv.getContext('2d');
-
-  // 회색 원
   ctx.beginPath();
   ctx.arc(sz/2, sz/2, sz/2 - 2, 0, Math.PI * 2);
-  ctx.fillStyle = '#888888';
+  ctx.fillStyle = '#666666';
   ctx.fill();
-
-  // 흰색 ?
   ctx.fillStyle = '#ffffff';
-  ctx.font = '600 56px sans-serif';
+  ctx.font = '700 62px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('?', sz/2, sz/2 + 3);
+  ctx.fillText(char, sz/2, sz/2 + 3);
+  return new THREE.CanvasTexture(cv);
+}
 
+function createMarker() {
   const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false })
+    new THREE.SpriteMaterial({ map: makeMarkerTexture('?'), depthTest: false })
   );
-  sprite.scale.set(0.028, 0.028, 1);
+  sprite.scale.set(0.018, 0.018, 1);
   sprite.userData.isMarker = true;
   return sprite;
 }
@@ -360,8 +361,9 @@ document.getElementById('btn-meta-save').addEventListener('click', () => {
   const date = document.getElementById('f-date').value;
   const memo = document.getElementById('f-memo').value.trim();
 
-  // change marker to white (confirmed)
-  pendingPoint.marker.material.color.set(0xffffff);
+  // ? → ! 로 교체
+  pendingPoint.marker.material.map = makeMarkerTexture('!');
+  pendingPoint.marker.material.map.needsUpdate = true;
   points.push({ position: pendingPoint.position, marker: pendingPoint.marker, name, date, memo });
   pendingPoint = null;
   document.getElementById('meta-form').style.display = 'none';
