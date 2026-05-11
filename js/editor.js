@@ -299,10 +299,12 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
-  document.getElementById('upload-progress').style.display = 'none';
+  document.getElementById('upload-progress').style.display = 'block';
+  document.getElementById('upload-progress').textContent = '업로드 중...';
 
   try {
     driveFileId = await uploadToDrive(file);
+    document.getElementById('upload-progress').textContent = '업로드 완료. GLB/GLTF 로드 중...';
     await loadGLB(driveFileId);
     setStep('viewpoint');
   } catch (err) {
@@ -392,31 +394,33 @@ document.getElementById('btn-save-viewpoint').addEventListener('click', () => {
 
 // ── Marker ──
 function makeMarkerTexture(char) {
-  const sz = 128;
+  const sz = 256;
   const cv = document.createElement('canvas');
   cv.width = cv.height = sz;
   const ctx = cv.getContext('2d');
+  const inset = 18;
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(12, 12, sz - 24, sz - 24);
+  ctx.fillRect(inset, inset, sz - inset * 2, sz - inset * 2);
   ctx.strokeStyle = '#111111';
-  ctx.lineWidth = 6;
-  ctx.strokeRect(12, 12, sz - 24, sz - 24);
-  ctx.fillStyle = '#ffffff';
-  ctx.strokeStyle = '#111111';
-  ctx.lineWidth = 6;
+  ctx.lineWidth = 10;
+  ctx.strokeRect(inset, inset, sz - inset * 2, sz - inset * 2);
   ctx.fillStyle = '#111111';
-  ctx.font = '700 62px sans-serif';
+  ctx.font = '700 142px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(char, sz/2, sz/2 + 3);
-  return new THREE.CanvasTexture(cv);
+  ctx.fillText(char, sz / 2, sz / 2 + 8);
+  const texture = new THREE.CanvasTexture(cv);
+  texture.generateMipmaps = false;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  return texture;
 }
 
 function createMarker() {
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: makeMarkerTexture('?'), depthTest: false })
   );
-  sprite.scale.set(0.022, 0.022, 1);
+  sprite.scale.set(0.032, 0.032, 1);
   sprite.userData.isMarker = true;
   return sprite;
 }

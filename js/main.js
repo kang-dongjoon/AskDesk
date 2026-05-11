@@ -145,13 +145,16 @@ document.getElementById('landing-file-input')?.addEventListener('change', async 
   if (!file) return;
 
   const progress = document.getElementById('landing-upload-progress');
-  progress.style.display = 'none';
+  progress.style.display = 'block';
+  progress.textContent = '업로드 중...';
 
   try {
     const driveFileId = await uploadLandingGLB(file);
+    progress.textContent = '업로드 완료. 에디터로 이동 중...';
     window.location.href = `editor.html?file=${encodeURIComponent(driveFileId)}`;
   } catch (err) {
     console.error(err);
+    progress.style.display = 'block';
     progress.textContent = '오류: ' + err.message;
   }
 });
