@@ -458,7 +458,7 @@ function renderDeskThumb(container, desk, index) {
       blobUrl = await fetchDriveBlobUrl(desk.drive_file_id);
     } catch (err) {
       console.warn('thumb GLB fetch failed', desk.desk_id, err);
-      removeThumbView(container);
+      showThumbFallback(container);
       return;
     }
 
@@ -487,17 +487,16 @@ function renderDeskThumb(container, desk, index) {
     }, undefined, (err) => {
       URL.revokeObjectURL(blobUrl);
       console.warn('thumb GLB failed', desk.desk_id, err);
-      removeThumbView(container);
+      showThumbFallback(container);
     });
   }
 
   loadThumbModel();
 
-  function removeThumbView(el) {
-    const idx = thumbViews.findIndex(view => view?.container === el);
-    if (idx >= 0) thumbViews[idx] = null;
-    el.remove();
-    window.requestAnimationFrame(layoutThumbs);
+  function showThumbFallback(el) {
+    el.classList.add('failed');
+    el.style.opacity = '';
+    renderer.domElement.remove();
   }
 
   container.addEventListener('mouseenter', () => {
