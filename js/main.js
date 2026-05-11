@@ -532,19 +532,8 @@ function renderDeskThumb(container, desk, index) {
   enqueueThumbLoad(loadThumbModel);
 
   function handleThumbFailure(el, err) {
-    const status = err?.target?.status;
-    const message = err?.message || String(err || 'unknown');
-    if (status === 404 || message.includes('404')) {
-      dropThumbView(el);
-      return;
-    }
-    showThumbFallback(el);
-  }
-
-  function showThumbFallback(el) {
-    el.classList.add('failed');
-    el.style.opacity = '';
-    renderer.domElement.remove();
+    console.warn('Dropping failed thumbnail', desk.desk_id, err);
+    dropThumbView(el);
   }
 
   function dropThumbView(el) {
