@@ -27,32 +27,46 @@ scene.add(dirLight);
 
 // ── Fly camera ──
 let flyMode  = false;
+let lookMode = false; // 시점 고정, 시선만 변경 (points 단계)
 let flyYaw   = 0;
 let flyPitch = 0;
 let flyDrag  = false;
 let flyLX    = 0, flyLY = 0;
 const keys   = {};
-const FLY_SPEED = 0.008;
+const FLY_SPEED = 0.004;
 
 document.addEventListener('keydown', e => { keys[e.code] = true; });
 document.addEventListener('keyup',   e => { keys[e.code] = false; });
 
 renderer.domElement.addEventListener('mousedown', e => {
-  if (!flyMode) return;
+  if (!flyMode && !lookMode) return;
   flyDrag = true; flyLX = e.clientX; flyLY = e.clientY;
 });
 renderer.domElement.addEventListener('mouseup',    () => flyDrag = false);
 renderer.domElement.addEventListener('mouseleave', () => flyDrag = false);
 renderer.domElement.addEventListener('mousemove', e => {
-  if (!flyMode || !flyDrag) return;
+  if ((!flyMode && !lookMode) || !flyDrag) return;
   flyYaw   -= (e.clientX - flyLX) / innerWidth  * 2.5;
   flyPitch -= (e.clientY - flyLY) / innerHeight * 2.0;
   flyPitch  = Math.max(-1.4, Math.min(1.4, flyPitch));
   flyLX = e.clientX; flyLY = e.clientY;
+  applyLook();
 });
 
+function getFwd() {
+  return new THREE.Vector3(
+    Math.sin(flyYaw)*Math.cos(flyPitch),
+    Math.sin(flyPitch),
+    Math.cos(flyYaw)*Math.cos(flyPitch)
+  );
+}
+
+function applyLook() {
+  camera.lookAt(camera.position.clone().add(getFwd()));
+}
+
 function applyFlyCamera() {
-  const fwd   = new THREE.Vector3(Math.sin(flyYaw)*Math.cos(flyPitch), Math.sin(flyPitch), Math.cos(flyYaw)*Math.cos(flyPitch));
+  const fwd   = getFwd();
   const right = new THREE.Vector3(Math.cos(flyYaw), 0, -Math.sin(flyYaw));
   const up    = new THREE.Vector3(0, 1, 0);
   if (keys['KeyW']) camera.position.addScaledVector(fwd,   FLY_SPEED);
@@ -61,7 +75,7 @@ function applyFlyCamera() {
   if (keys['KeyD']) camera.position.addScaledVector(right, -FLY_SPEED);
   if (keys['KeyE']) camera.position.addScaledVector(up,    FLY_SPEED);
   if (keys['KeyQ']) camera.position.addScaledVector(up,   -FLY_SPEED);
-  camera.lookAt(camera.position.clone().add(fwd));
+  applyLook();
 }
 
 window.addEventListener('resize', () => {
@@ -97,13 +111,15 @@ function setStep(name) {
     flyPitch = Math.asin(Math.max(-1, Math.min(1, d.y)));
   } else if (name === 'points') {
     document.getElementById('step-points').style.display = 'block';
-    document.getElementById('step-indicator').textContent = 'STEP 2 — 포인트 지정';
+    document.getElementById('step-indicator').textContent = 'STEP 2 — 포인트 지정 · 드래그로 시선 조정';
     document.getElementById('crosshair').style.display = 'block';
     flyMode = false;
+    lookMode = true;
   } else if (name === 'submit') {
     document.getElementById('step-submit').style.display = 'block';
     document.getElementById('step-indicator').textContent = 'STEP 3 — 제출';
     flyMode = false;
+    lookMode = false;
     buildSubmitPreview();
   }
 }
@@ -258,15 +274,21 @@ const raycaster = new THREE.Raycaster();
 const mouse     = new THREE.Vector2();
 
 renderer.domElement.addEventListener('click', (e) => {
-  if (orbit.enabled) return;
+  if (!lookMode) return;
+  if (flyDrag) return; // 드래그 끝난 클릭 무시
   if (document.getElementById('meta-form').style.display === 'flex') return;
+
+  camera.updateMatrixWorld();
 
   mouse.x =  (e.clientX / innerWidth)  * 2 - 1;
   mouse.y = -(e.clientY / innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
 
-  const hits = raycaster.intersectObject(scene, true)
-    .filter(h => !h.object.userData.isMarker);
+  const meshes = [];
+  scene.traverse(c => { if (c.isMesh && !c.userData.isMarker) meshes.push(c); });
+
+  const hits = raycaster.intersectObjects(meshes, false);
+  console.log(`click — meshes: ${meshes.length}, hits: ${hits.length}`);
 
   if (!hits.length) return;
 
