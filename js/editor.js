@@ -287,23 +287,23 @@ function createMarker() {
   cv.width  = cv.height = sz;
   const ctx = cv.getContext('2d');
 
+  // 회색 원
+  ctx.beginPath();
+  ctx.arc(sz/2, sz/2, sz/2 - 2, 0, Math.PI * 2);
+  ctx.fillStyle = '#888888';
+  ctx.fill();
+
+  // 흰색 ?
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, sz, sz);
-
-  ctx.strokeStyle = '#111111';
-  ctx.lineWidth = 5;
-  ctx.strokeRect(2.5, 2.5, sz - 5, sz - 5);
-
-  ctx.fillStyle = '#111111';
-  ctx.font = '500 60px sans-serif';
+  ctx.font = '600 56px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('?', sz / 2, sz / 2 + 2);
+  ctx.fillText('?', sz/2, sz/2 + 3);
 
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false })
   );
-  sprite.scale.set(0.05, 0.05, 1);
+  sprite.scale.set(0.028, 0.028, 1);
   sprite.userData.isMarker = true;
   return sprite;
 }
