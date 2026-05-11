@@ -4,5 +4,5 @@ const CONFIG = {
   DRIVE_FOLDER_ID: '18XgRXN41Ia44J2d9Gdx2sizv-C1Puv64',
   SHEET_ID:        '10Z8y13h03lpk1IoT0M3HsPw9ApVEGBI5IliDzFIp3y4',
   SCOPES:          'https://www.googleapis.com/auth/drive.file',
-  APPS_SCRIPT_URL: '',  // Apps Script 웹앱 URL — 배포 후 채울 것
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbydVJJ5iQEpng_kCuYS85TEg-DKLkM0DPio3OEup4bk51g2QfSg3reD6pFterd2PIysTw/exec',
 };
