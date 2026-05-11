@@ -277,16 +277,22 @@
 
     .date-row {
       display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) 78px;
+      gap: 10px;
       align-items: center;
+    }
+
+    .date-row #f-date {
+      min-width: 0;
+      font-size: 13px;
     }
 
     .unknown-check {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 12px;
+      justify-content: flex-end;
+      gap: 4px;
+      font-size: 11px;
       letter-spacing: 0;
       text-transform: none;
       color: #111;

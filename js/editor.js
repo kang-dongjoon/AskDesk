@@ -550,7 +550,6 @@ function buildSubmitPreview() {
 // ── Submit to Apps Script ──
 document.getElementById('btn-submit').addEventListener('click', async () => {
   const btn = document.getElementById('btn-submit');
-  btn.textContent = '제출 중…';
   btn.disabled = true;
 
   const pin    = String(document.getElementById('pin-input').value || '0000').slice(0, 4).padStart(4, '0');
@@ -560,14 +559,12 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
       const isUsed = desks.some((item) => (item.desk_id || '').split('-').pop() === pin);
       if (isUsed) {
         document.getElementById('submit-status').textContent = '이미 사용중인 번호입니다.';
-        btn.textContent = '제출';
         btn.disabled = false;
         return;
       }
     } catch (err) {
       console.error(err);
       document.getElementById('submit-status').textContent = '비밀번호 중복 여부를 확인하지 못했습니다. 다시 시도해주세요.';
-      btn.textContent = '제출';
       btn.disabled = false;
       return;
     }
@@ -620,7 +617,6 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
   } catch (err) {
     console.error(err);
     document.getElementById('submit-status').textContent = '오류가 발생했습니다. 다시 시도해주세요.';
-    btn.textContent = '다시 제출';
     btn.disabled = false;
   }
 });
