@@ -396,13 +396,14 @@ function makeMarkerTexture(char) {
   const cv = document.createElement('canvas');
   cv.width = cv.height = sz;
   const ctx = cv.getContext('2d');
-  ctx.beginPath();
-  ctx.arc(sz/2, sz/2, sz/2 - 4, 0, Math.PI * 2);
   ctx.fillStyle = '#ffffff';
-  ctx.fill();
+  ctx.fillRect(12, 12, sz - 24, sz - 24);
   ctx.strokeStyle = '#111111';
   ctx.lineWidth = 6;
-  ctx.stroke();
+  ctx.strokeRect(12, 12, sz - 24, sz - 24);
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#111111';
+  ctx.lineWidth = 6;
   ctx.fillStyle = '#111111';
   ctx.font = '700 62px sans-serif';
   ctx.textAlign = 'center';
@@ -415,7 +416,7 @@ function createMarker() {
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: makeMarkerTexture('?'), depthTest: false })
   );
-  sprite.scale.set(0.018, 0.018, 1);
+  sprite.scale.set(0.022, 0.022, 1);
   sprite.userData.isMarker = true;
   return sprite;
 }
