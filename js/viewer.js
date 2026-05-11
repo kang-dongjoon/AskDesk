@@ -15,10 +15,71 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
 dirLight.position.set(1.5, 3, 2);
 scene.add(dirLight);
 
-const gltfLoader = new THREE.GLTFLoader();
+// --- Render targets ---
+let rtNormal = new THREE.WebGLRenderTarget(innerWidth, innerHeight);
+let rtClay   = new THREE.WebGLRenderTarget(innerWidth, innerHeight);
 
+// --- Composite quad: inside circle = texture, outside = clay ---
+const compScene  = new THREE.Scene();
+const compCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const compMat = new THREE.ShaderMaterial({
+  uniforms: {
+    tNormal:      { value: rtNormal.texture },
+    tClay:        { value: rtClay.texture },
+    visionRadius: { value: 0.07 },
+    aspect:       { value: innerWidth / innerHeight },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position.xy, 0.0, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tNormal;
+    uniform sampler2D tClay;
+    uniform float visionRadius;
+    uniform float aspect;
+    varying vec2 vUv;
+    void main() {
+      vec2 d = (vUv - 0.5) * vec2(aspect, 1.0);
+      float dist  = length(d);
+      float edge  = 0.025;
+      float mask  = smoothstep(visionRadius + edge, visionRadius - edge, dist);
+      vec4 normal = texture2D(tNormal, vUv);
+      vec4 clay   = texture2D(tClay,   vUv);
+      gl_FragColor = mix(clay, normal, mask);
+    }
+  `,
+  depthTest: false,
+  depthWrite: false,
+});
+compScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), compMat));
+
+// --- Clay material map ---
+const normalMaterials = new Map();
+const clayMaterials   = new Map();
+let modelLoaded = false;
+
+function initClayMaterials(root) {
+  root.traverse(c => {
+    if (!c.isMesh) return;
+    normalMaterials.set(c.uuid, c.material);
+    clayMaterials.set(c.uuid, new THREE.MeshLambertMaterial({ color: 0xd4b896 }));
+  });
+}
+
+function applyMaterials(useClay) {
+  scene.traverse(c => {
+    if (!c.isMesh || !normalMaterials.has(c.uuid)) return;
+    c.material = useClay ? clayMaterials.get(c.uuid) : normalMaterials.get(c.uuid);
+  });
+}
+
+const gltfLoader = new THREE.GLTFLoader();
 gltfLoader.load('desk.glb', (gltf) => {
-  const model = gltf.scene;
+  const model  = gltf.scene;
   const box    = new THREE.Box3().setFromObject(model);
   const size   = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
@@ -26,13 +87,15 @@ gltfLoader.load('desk.glb', (gltf) => {
   model.scale.setScalar(scale);
   model.position.sub(center.multiplyScalar(scale));
   scene.add(model);
+  initClayMaterials(model);
+  modelLoaded = true;
   document.getElementById('loading').classList.add('hidden');
 }, null, (err) => {
   console.error(err);
   document.getElementById('loading-text').textContent = 'error loading model';
 });
 
-// dev: orbit 토글 (O키 또는 버튼)
+// --- dev: orbit 토글 ---
 const orbitCtrl = new THREE.OrbitControls(camera, renderer.domElement);
 orbitCtrl.enableDamping = true;
 orbitCtrl.enabled = false;
@@ -56,7 +119,6 @@ function logCamPos() {
 }
 
 document.getElementById('dev-toggle').addEventListener('click', toggleOrbit);
-
 document.addEventListener('keydown', (e) => {
   if (e.code === 'KeyO') toggleOrbit();
   if (e.code === 'KeyC') logCamPos();
@@ -66,12 +128,42 @@ window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  rtNormal.setSize(innerWidth, innerHeight);
+  rtClay.setSize(innerWidth, innerHeight);
+  compMat.uniforms.aspect.value = innerWidth / innerHeight;
 });
 
 (function loop() {
   requestAnimationFrame(loop);
   if (window.DEV_ORBIT) orbitCtrl.update();
-  renderer.render(scene, camera);
+
+  if (modelLoaded) {
+    // normal pass
+    applyMaterials(false);
+    scene.background = null;
+    renderer.setRenderTarget(rtNormal);
+    renderer.render(scene, camera);
+
+    // clay pass
+    applyMaterials(true);
+    scene.background = new THREE.Color(0xe8ddd0);
+    renderer.setRenderTarget(rtClay);
+    renderer.render(scene, camera);
+
+    // restore
+    applyMaterials(false);
+    scene.background = null;
+    renderer.setRenderTarget(null);
+    renderer.render(compScene, compCamera);
+  } else {
+    renderer.setRenderTarget(null);
+    renderer.render(scene, camera);
+  }
 })();
 
-window.Viewer = { scene, camera, renderer };
+window.Viewer = {
+  scene, camera, renderer,
+  setVisionRadius(r) {
+    compMat.uniforms.visionRadius.value = r;
+  },
+};
