@@ -280,6 +280,34 @@ document.getElementById('btn-save-viewpoint').addEventListener('click', () => {
   setStep('points');
 });
 
+// ── Marker: 흰 박스, 검은 테두리, ? ──
+function createMarker() {
+  const sz  = 128;
+  const cv  = document.createElement('canvas');
+  cv.width  = cv.height = sz;
+  const ctx = cv.getContext('2d');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, sz, sz);
+
+  ctx.strokeStyle = '#111111';
+  ctx.lineWidth = 5;
+  ctx.strokeRect(2.5, 2.5, sz - 5, sz - 5);
+
+  ctx.fillStyle = '#111111';
+  ctx.font = '500 60px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('?', sz / 2, sz / 2 + 2);
+
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false })
+  );
+  sprite.scale.set(0.05, 0.05, 1);
+  sprite.userData.isMarker = true;
+  return sprite;
+}
+
 // ── Step 3: Raycasting for point placement ──
 const raycaster = new THREE.Raycaster();
 const mouse     = new THREE.Vector2();
@@ -303,15 +331,8 @@ function placePoint(e) {
 
   const pt = hits[0].point;
 
-  // 클릭 피드백: 화면 잠깐 밝아짐
-  renderer.domElement.style.filter = 'brightness(1.4)';
-  setTimeout(() => renderer.domElement.style.filter = '', 120);
-
-  // 마커 (노란 구체, 크게)
-  const mat    = new THREE.MeshBasicMaterial({ color: 0xffee00 });
-  const marker = new THREE.Mesh(new THREE.SphereGeometry(0.018, 14, 14), mat);
+  const marker = createMarker();
   marker.position.copy(pt);
-  marker.userData.isMarker = true;
   scene.add(marker);
 
   pendingPoint = { position: pt.clone(), marker };
