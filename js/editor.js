@@ -6,6 +6,10 @@ let savedTarget  = null;
 let pendingPoint = null;   // {position, marker}
 const points     = [];     // [{position, meta, marker}]
 
+const params      = new URLSearchParams(location.search);
+const editDeskId  = params.get('edit');
+let isEditMode    = false;
+
 // ── Three.js setup ──
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(devicePixelRatio);
@@ -94,6 +98,7 @@ function setStep(name) {
 
   if (name === 'upload') {
     document.getElementById('step-upload').style.display = 'flex';
+    document.getElementById('btn-done').style.display = 'none';
   } else if (name === 'viewpoint') {
     document.getElementById('step-viewpoint').style.display = 'flex';
     document.getElementById('step-indicator').textContent = '01 — viewpoint';
@@ -116,6 +121,76 @@ function setStep(name) {
     lookMode = false;
     buildSubmitPreview();
   }
+}
+
+
+async function bootstrapEditMode() {
+  if (!editDeskId) return;
+  isEditMode = true;
+
+  document.getElementById('step-upload').querySelector('.sub').innerHTML =
+    '기존 책상을 불러왔습니다.<br>시점/포인트를 수정한 뒤 새 버전으로 제출하세요.';
+  document.getElementById('upload-progress').style.display = 'block';
+  document.getElementById('upload-progress').textContent = '기존 데이터 불러오는 중…';
+
+  let desk = null;
+  let objects = [];
+  try {
+    const desks = await CMS.fetchDesks();
+    desk = [...desks].reverse().find(d => d.desk_id === editDeskId) || null;
+    objects = await CMS.fetchObjects(editDeskId);
+  } catch (e) {
+    console.error(e);
+  }
+
+  if (!desk) {
+    document.getElementById('upload-progress').textContent = '오류: 기존 책상을 찾을 수 없습니다.';
+    return;
+  }
+
+  driveFileId = desk.drive_file_id;
+  if (desk.owner) window._userName = desk.owner;
+
+  if (desk.cam_pos_x && desk.cam_pos_y && desk.cam_pos_z) {
+    savedPos = new THREE.Vector3(parseFloat(desk.cam_pos_x) || 0, parseFloat(desk.cam_pos_y) || 0, parseFloat(desk.cam_pos_z) || 0);
+  }
+  if (desk.cam_target_x && desk.cam_target_y && desk.cam_target_z) {
+    savedTarget = new THREE.Vector3(parseFloat(desk.cam_target_x) || 0, parseFloat(desk.cam_target_y) || 0, parseFloat(desk.cam_target_z) || 0);
+  }
+
+  try {
+    await loadGLB(driveFileId);
+    seedExistingPoints(objects);
+    if (savedPos && savedTarget) {
+      camera.position.copy(savedPos);
+      orbit.target.copy(savedTarget);
+      orbit.update();
+    }
+    document.getElementById('upload-progress').textContent = '기존 데이터를 불러왔습니다.';
+    setStep('viewpoint');
+  } catch (err) {
+    console.error(err);
+    document.getElementById('upload-progress').textContent = '오류: 기존 GLB를 불러오지 못했습니다.';
+  }
+}
+
+function seedExistingPoints(objects) {
+  objects.forEach(obj => {
+    const x = parseFloat(obj.x), y = parseFloat(obj.y), z = parseFloat(obj.z);
+    if (Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(z)) return;
+    const marker = createMarker();
+    marker.material.map = makeMarkerTexture('!');
+    marker.material.map.needsUpdate = true;
+    marker.position.set(x, y, z);
+    scene.add(marker);
+    points.push({
+      position: marker.position.clone(),
+      marker,
+      name: obj.name || '',
+      date: obj.collected_date || '',
+      memo: obj.memory_note || '',
+    });
+  });
 }
 
 // ── Step 1: Google login ──
@@ -360,9 +435,9 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
   btn.textContent = '제출 중…';
   btn.disabled = true;
 
-  const pin    = String(document.getElementById('pin-input').value || '0000').slice(0, 4).padStart(4, '0');
-  const uuid   = crypto.randomUUID ? crypto.randomUUID().split('-')[0] : Date.now().toString(36);
-  const deskId = `${uuid}-${pin}`;
+  const pin = String(document.getElementById('pin-input').value || '0000').slice(0, 4).padStart(4, '0');
+  const uuid = crypto.randomUUID ? crypto.randomUUID().split('-')[0] : Date.now().toString(36);
+  const deskId = isEditMode ? editDeskId : `${uuid}-${pin}`;
 
   const payload = {
     desk: {
@@ -415,3 +490,4 @@ document.getElementById('btn-done').addEventListener('click', () => {
 
 // ── Init ──
 setStep('upload');
+bootstrapEditMode();

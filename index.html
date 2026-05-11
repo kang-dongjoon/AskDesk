@@ -9,7 +9,7 @@
 <body>
 
   <nav id="nav">
-    <button class="nav-btn" id="nav-desk">Desk</button>
+    <button class="nav-btn nav-btn-lg" id="nav-desk">Desk</button>
   </nav>
 
   <aside id="panel">
@@ -18,8 +18,21 @@
       <p>수집가의 작업실 책상 위 사물들을 수집하는 개인적 아카이브. 타인은 공감이나 지식보다 "질문의 전염"을 경험하게 된다.</p>
     </div>
     <hr id="panel-divider">
+    <div id="panel-actions">
+      <button class="nav-btn" id="btn-panel-login">Google Login</button>
+      <a href="editor.html" class="nav-btn">Upload</a>
+      <a href="editor.html" class="nav-btn">Edit</a>
+    </div>
     <div id="panel-bottom">
-      <a href="editor.html" class="nav-btn">upload</a>
+      <div class="panel-form-row">
+        <span class="panel-form-label">owner</span><button class="panel-ghost-box" type="button"></button>
+      </div>
+      <div class="panel-form-row">
+        <span class="panel-form-label">desk id</span><button class="panel-ghost-box" type="button"></button>
+      </div>
+      <div class="panel-form-row">
+        <span class="panel-form-label">pin</span><button class="panel-ghost-box" type="button"></button>
+      </div>
     </div>
   </aside>
 

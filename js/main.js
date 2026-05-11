@@ -54,7 +54,11 @@ function renderThumbs(desks) {
     const y   = rand(i * 3 + 1) * (H - h - 40) + 20;
     const rot = (rand(i * 3 + 2) - 0.5) * 10;
 
-    el.style.cssText = `width:${w}px;height:${h}px;left:${x}px;top:${y}px;transform:rotate(${rot}deg);`;
+    el.style.width = `${w}px`;
+    el.style.height = `${h}px`;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.transform = `rotate(${rot}deg)`;
 
     // 텍스처 썸네일이 있으면 호버 시 표시
     if (desk.thumbnail_url) {
@@ -81,3 +85,11 @@ function renderThumbs(desks) {
 }
 
 init();
+
+
+const btnPanelLogin = document.getElementById('btn-panel-login');
+if (btnPanelLogin) {
+  btnPanelLogin.addEventListener('click', () => {
+    window.location.href = 'editor.html';
+  });
+}
