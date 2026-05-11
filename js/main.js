@@ -356,8 +356,9 @@ function layoutThumbs() {
   const columns = W >= 920 ? 3 : W >= 620 ? 2 : 1;
 
   const rows = Math.ceil(count / columns);
-  const cellW = W / columns;
-  const cellH = H / rows;
+  const gap = clamp(W * 0.045, 42, 96);
+  const cellW = (W - gap * (columns + 1)) / columns;
+  const cellH = (H - gap * (rows + 1)) / rows;
 
   container.style.width = `${W}px`;
   container.style.height = `${H}px`;
@@ -367,20 +368,10 @@ function layoutThumbs() {
 
     const col = i % columns;
     const row = Math.floor(i / columns);
-    const w   = clamp(cellW * (0.94 + rand(i * 7) * 0.08), 320, Math.min(820, cellW * 0.995));
-    const h   = clamp(w * (1.12 + rand(i * 11) * 0.16), 360, cellH * 0.995);
-    const jitterX = (rand(i * 13) - 0.5) * Math.max(0, cellW - w) * 0.55;
-    const jitterY = (rand(i * 17) - 0.5) * Math.max(0, cellH - h) * 0.12;
-    const x = clamp(
-      col * cellW + (cellW - w) / 2 + jitterX,
-      col * cellW + 8,
-      (col + 1) * cellW - w - 8
-    );
-    const y = clamp(
-      row * cellH + cellH - h - 14 + jitterY,
-      row * cellH + 8,
-      (row + 1) * cellH - h - 8
-    );
+    const w = Math.max(280, cellW);
+    const h = Math.max(320, cellH);
+    const x = gap + col * (cellW + gap);
+    const y = gap + row * (cellH + gap);
     const rot = (rand(i * 3 + 2) - 0.5) * 5;
 
     el.style.width = `${w}px`;
@@ -451,7 +442,7 @@ function renderDeskThumb(container, desk, index) {
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
     const fitWidth = viewHeight * aspect;
-    const fitSize = Math.min(viewHeight, fitWidth) * 0.76;
+    const fitSize = Math.min(viewHeight, fitWidth) * 0.68;
     baseScale = fitSize / radius;
   }
 
