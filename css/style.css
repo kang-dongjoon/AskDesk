@@ -292,7 +292,6 @@ body.is-empty-collection #thumbs {
   padding: 8px 12px;
   font-size: 12px;
   letter-spacing: .08em;
-  text-transform: uppercase;
   pointer-events: none;
   white-space: nowrap;
 }

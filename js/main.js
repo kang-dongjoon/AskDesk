@@ -22,8 +22,8 @@ function getLandingMetrics() {
   const heroHeight = hero?.getBoundingClientRect().height || 150;
   const edgeGap = window.innerHeight * 0.08;
   const edgeSpace = Math.max(320, window.innerHeight - heroHeight - edgeGap);
-  const thumbTitleGap = Math.round(clamp(window.innerHeight * 0.28, 240, 340));
-  const thumbAreaHeight = Math.max(1100, window.innerHeight * 1.45);
+  const thumbTitleGap = Math.round(clamp(window.innerHeight * 0.1, 76, 120));
+  const thumbAreaHeight = Math.max(0, window.innerHeight * 1.45);
 
   return { edgeGap, edgeSpace, thumbTitleGap, thumbAreaHeight };
 }
@@ -438,14 +438,17 @@ function layoutThumbs() {
   const activeViews = thumbViews.filter(Boolean);
   const W = getStageWidth();
   const hasVisibleDesks = currentVisibleDesks.length > 0;
-  const H = hasVisibleDesks ? getLandingMetrics().thumbAreaHeight : 0;
   const count = Math.max(activeViews.length, 1);
   const columns = W >= 920 ? 3 : W >= 620 ? 2 : 1;
 
   const rows = Math.ceil(count / columns);
-  const gap = clamp(W * 0.045, 42, 96);
-  const cellW = (W - gap * (columns + 1)) / columns;
-  const cellH = (H - gap * (rows + 1)) / rows;
+  const colGap = clamp(W * 0.045, 42, 96);
+  const rowGap = clamp(window.innerHeight * 0.11, 86, 132);
+  const bottomGap = clamp(window.innerHeight * 0.02, 18, 32);
+  const cellW = (W - colGap * (columns + 1)) / columns;
+  const thumbW = Math.max(300, cellW);
+  const thumbH = clamp(thumbW * 1.08, 360, 560);
+  const H = hasVisibleDesks ? rows * thumbH + (rows - 1) * rowGap + bottomGap : 0;
 
   container.style.width = `${W}px`;
   container.style.height = `${H}px`;
@@ -456,10 +459,10 @@ function layoutThumbs() {
 
     const col = i % columns;
     const row = Math.floor(i / columns);
-    const w = Math.max(280, cellW);
-    const h = Math.max(320, cellH);
-    const x = gap + col * (cellW + gap);
-    const y = gap + row * (cellH + gap);
+    const w = thumbW;
+    const h = thumbH;
+    const x = colGap + col * (cellW + colGap);
+    const y = H - bottomGap - h - row * (h + rowGap);
     const rot = (rand(i * 3 + 2) - 0.5) * 5;
 
     el.style.width = `${w}px`;
