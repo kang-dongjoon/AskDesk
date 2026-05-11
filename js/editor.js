@@ -38,14 +38,25 @@ const FLY_SPEED = 0.004;
 document.addEventListener('keydown', e => { keys[e.code] = true; });
 document.addEventListener('keyup',   e => { keys[e.code] = false; });
 
+let downX = 0, downY = 0, movedPx = 0;
+
 renderer.domElement.addEventListener('mousedown', e => {
   if (!flyMode && !lookMode) return;
-  flyDrag = true; flyLX = e.clientX; flyLY = e.clientY;
+  flyDrag = true;
+  flyLX = e.clientX; flyLY = e.clientY;
+  downX = e.clientX; downY = e.clientY;
+  movedPx = 0;
 });
-renderer.domElement.addEventListener('mouseup',    () => flyDrag = false);
+renderer.domElement.addEventListener('mouseup', e => {
+  if (!flyDrag) return;
+  flyDrag = false;
+  // 움직임이 작으면 → 클릭으로 처리 (포인트 지정)
+  if (lookMode && movedPx < 5) placePoint(e);
+});
 renderer.domElement.addEventListener('mouseleave', () => flyDrag = false);
 renderer.domElement.addEventListener('mousemove', e => {
   if ((!flyMode && !lookMode) || !flyDrag) return;
+  movedPx = Math.hypot(e.clientX - downX, e.clientY - downY);
   flyYaw   -= (e.clientX - flyLX) / innerWidth  * 2.5;
   flyPitch -= (e.clientY - flyLY) / innerHeight * 2.0;
   flyPitch  = Math.max(-1.4, Math.min(1.4, flyPitch));
@@ -273,9 +284,7 @@ document.getElementById('btn-save-viewpoint').addEventListener('click', () => {
 const raycaster = new THREE.Raycaster();
 const mouse     = new THREE.Vector2();
 
-renderer.domElement.addEventListener('click', (e) => {
-  if (!lookMode) return;
-  if (flyDrag) return; // 드래그 끝난 클릭 무시
+function placePoint(e) {
   if (document.getElementById('meta-form').style.display === 'flex') return;
 
   camera.updateMatrixWorld();
@@ -288,7 +297,7 @@ renderer.domElement.addEventListener('click', (e) => {
   scene.traverse(c => { if (c.isMesh && !c.userData.isMarker) meshes.push(c); });
 
   const hits = raycaster.intersectObjects(meshes, false);
-  console.log(`click — meshes: ${meshes.length}, hits: ${hits.length}`);
+  console.log(`place — meshes: ${meshes.length}, hits: ${hits.length}`);
 
   if (!hits.length) return;
 
@@ -307,7 +316,7 @@ renderer.domElement.addEventListener('click', (e) => {
 
   pendingPoint = { position: pt.clone(), marker };
   openMetaForm();
-});
+}
 
 // ── Metadata form ──
 function openMetaForm() {
