@@ -23,7 +23,7 @@ function getLandingMetrics() {
   const edgeGap = window.innerHeight * 0.08;
   const edgeSpace = Math.max(320, window.innerHeight - heroHeight - edgeGap);
   const thumbTitleGap = Math.round(clamp(window.innerHeight * 0.28, 240, 340));
-  const thumbAreaHeight = Math.max(640, window.innerHeight * 0.74);
+  const thumbAreaHeight = Math.max(1100, window.innerHeight * 1.45);
 
   return { edgeGap, edgeSpace, thumbTitleGap, thumbAreaHeight };
 }
@@ -367,10 +367,10 @@ function layoutThumbs() {
 
     const col = i % columns;
     const row = Math.floor(i / columns);
-    const w   = clamp(cellW * (0.82 + rand(i * 7) * 0.16), 190, Math.min(560, cellW * 0.98));
-    const h   = clamp(w * (1.06 + rand(i * 11) * 0.18), 210, cellH * 0.98);
+    const w   = clamp(cellW * (0.94 + rand(i * 7) * 0.08), 320, Math.min(820, cellW * 0.995));
+    const h   = clamp(w * (1.12 + rand(i * 11) * 0.16), 360, cellH * 0.995);
     const jitterX = (rand(i * 13) - 0.5) * Math.max(0, cellW - w) * 0.55;
-    const jitterY = (rand(i * 17) - 0.5) * Math.max(0, cellH - h) * 0.22;
+    const jitterY = (rand(i * 17) - 0.5) * Math.max(0, cellH - h) * 0.12;
     const x = clamp(
       col * cellW + (cellW - w) / 2 + jitterX,
       col * cellW + 8,
@@ -381,7 +381,7 @@ function layoutThumbs() {
       row * cellH + 8,
       (row + 1) * cellH - h - 8
     );
-    const rot = (rand(i * 3 + 2) - 0.5) * 8;
+    const rot = (rand(i * 3 + 2) - 0.5) * 5;
 
     el.style.width = `${w}px`;
     el.style.height = `${h}px`;
@@ -451,7 +451,7 @@ function renderDeskThumb(container, desk, index) {
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
     const fitWidth = viewHeight * aspect;
-    const fitSize = Math.min(viewHeight, fitWidth) * 0.43;
+    const fitSize = Math.min(viewHeight, fitWidth) * 0.76;
     baseScale = fitSize / radius;
   }
 
