@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ask — Desk</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body style="background:#000; overflow:hidden;">
+
+  <div id="loading">loading…</div>
+
+  <nav id="viewer-nav">
+    <a href="index.html">home</a>
+    <button id="btn-what">what</button>
+  </nav>
+
+  <aside id="viewer-panel">
+    <div id="panel-desk-info"></div>
+    <hr style="border:none;border-top:1px solid #e8e8e8;margin:24px 0;">
+    <div id="panel-objects"></div>
+  </aside>
+
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/cms.js"></script>
+  <script src="js/viewer.js"></script>
+</body>
+</html>
