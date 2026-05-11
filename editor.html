@@ -6,9 +6,8 @@
   <title>Ask — Desk · upload</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    body { background:#fff; overflow:hidden; }
+    body { background: #111; overflow: hidden; }
 
-    /* ── Step UI ── */
     #ui {
       position: fixed;
       inset: 0;
@@ -16,7 +15,32 @@
       pointer-events: none;
     }
 
-    /* Step 1: upload screen */
+    /* ── Nav ── */
+    #editor-nav {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 28px;
+      font-size: 11px;
+      letter-spacing: .08em;
+      color: rgba(255,255,255,0.4);
+      pointer-events: all;
+      z-index: 10;
+    }
+    #editor-nav a { transition: color 200ms; }
+    #editor-nav a:hover { color: rgba(255,255,255,0.8); }
+
+    #step-indicator {
+      font-size: 9px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.3);
+      pointer-events: none;
+    }
+
+    /* ── Upload screen ── */
     #step-upload {
       position: absolute;
       inset: 0;
@@ -24,127 +48,178 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 32px;
+      gap: 0;
       pointer-events: all;
       background: #fff;
     }
-    #step-upload h2 { font-size: clamp(32px,6vw,72px); font-weight:300; letter-spacing:-.01em; }
-    #step-upload p  { font-size:13px; color:#888; line-height:1.7; text-align:center; max-width:360px; }
 
-    .btn-primary {
-      font-size: 11px;
-      letter-spacing: .1em;
-      color: #111;
-      border: 1px solid #111;
-      padding: 10px 28px;
-      cursor: pointer;
-      background: #fff;
-      transition: background 200ms, color 200ms;
+    #step-upload h2 {
+      font-size: clamp(40px, 7vw, 88px);
+      font-weight: 300;
+      letter-spacing: -.01em;
+      line-height: 1;
+      margin-bottom: 20px;
     }
-    .btn-primary:hover { background:#111; color:#fff; }
 
-    #file-input { display:none; }
-
-    /* Step 2: viewpoint */
-    #step-viewpoint {
-      display: none;
-      position: absolute;
-      bottom: 32px;
-      left: 50%;
-      transform: translateX(-50%);
-      text-align: center;
-      pointer-events: all;
-    }
-    #step-viewpoint p { font-size:11px; color:#888; letter-spacing:.06em; margin-bottom:16px; }
-
-    /* Step 3: point mode */
-    #step-points {
-      display: none;
-      position: absolute;
-      bottom: 32px;
-      left: 50%;
-      transform: translateX(-50%);
-      text-align: center;
-      pointer-events: all;
-    }
-    #step-points p { font-size:11px; color:#888; letter-spacing:.06em; margin-bottom:16px; }
-
-    /* Metadata form */
-    #meta-form {
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%,-50%);
-      background: #fff;
-      border: 1px solid #111;
-      padding: 32px;
-      width: 320px;
-      pointer-events: all;
-    }
-    #meta-form h3 { font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#888; margin-bottom:20px; }
-    .field { margin-bottom:16px; }
-    .field label { display:block; font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:#bbb; margin-bottom:6px; }
-    .field input, .field textarea {
-      width:100%; border:none; border-bottom:1px solid #e0e0e0;
-      font:inherit; font-size:13px; padding:4px 0; outline:none;
-      background:transparent; color:#111;
-    }
-    .field textarea { resize:none; height:72px; }
-    .form-row { display:flex; gap:12px; margin-top:20px; }
-
-    /* Submit screen */
-    #step-submit {
-      display: none;
-      position: absolute;
-      bottom: 32px;
-      left: 50%;
-      transform: translateX(-50%);
-      text-align: center;
-      pointer-events: all;
-    }
-    #step-submit p { font-size:11px; color:#888; letter-spacing:.06em; margin-bottom:16px; }
-
-    /* Nav */
-    #editor-nav {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      display: flex;
-      justify-content: space-between;
-      padding: 20px 28px;
+    #step-upload .sub {
       font-size: 11px;
       letter-spacing: .06em;
       color: #888;
-      pointer-events: all;
-      z-index: 10;
+      line-height: 1.8;
+      text-align: center;
+      margin-bottom: 40px;
     }
 
-    /* Step indicator */
-    #step-indicator {
+    #upload-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #file-input { display: none; }
+
+    #upload-progress {
+      font-size: 10px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: #bbb;
+      display: none;
+      margin-top: 4px;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      font-size: 10px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #111;
+      border: 1px solid #111;
+      padding: 9px 24px;
+      cursor: pointer;
+      background: #fff;
+      transition: opacity 150ms;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: .5; }
+    .btn:disabled { opacity: .3; cursor: default; }
+
+    .btn-ghost {
+      font-size: 10px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 9px 24px;
+      cursor: pointer;
+      background: transparent;
+      transition: opacity 150ms;
+      white-space: nowrap;
+    }
+    .btn-ghost:hover { opacity: .6; }
+
+    #login-status {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    #login-name {
+      font-size: 10px;
+      letter-spacing: .08em;
+      color: #bbb;
+    }
+
+    /* ── Bottom bar (step 2, 3, submit) ── */
+    .bottom-bar {
+      display: none;
       position: absolute;
-      top: 20px;
+      bottom: 36px;
       left: 50%;
       transform: translateX(-50%);
-      font-size: 9px;
-      letter-spacing: .12em;
-      color: #bbb;
-      pointer-events: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      pointer-events: all;
+    }
+    .bottom-bar p {
+      font-size: 10px;
+      letter-spacing: .08em;
+      color: rgba(255,255,255,0.4);
+      text-align: center;
+      line-height: 1.8;
     }
 
-    /* Crosshair for point placement */
+    /* ── Crosshair ── */
     #crosshair {
       display: none;
       position: absolute;
       top: 50%; left: 50%;
-      transform: translate(-50%,-50%);
-      width: 20px; height: 20px;
+      transform: translate(-50%, -50%);
+      width: 16px; height: 16px;
       pointer-events: none;
     }
     #crosshair::before, #crosshair::after {
-      content:''; position:absolute; background:#fff;
+      content: ''; position: absolute; background: rgba(255,255,255,0.6);
     }
-    #crosshair::before { width:1px; height:100%; left:50%; }
-    #crosshair::after  { width:100%; height:1px; top:50%; }
+    #crosshair::before { width: 1px; height: 100%; left: 50%; top: 0; }
+    #crosshair::after  { width: 100%; height: 1px; top: 50%; left: 0; }
+
+    /* ── Meta form ── */
+    #meta-form {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      padding: 28px;
+      width: 300px;
+      pointer-events: all;
+    }
+
+    #meta-form h3 {
+      font-size: 9px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: #bbb;
+      margin-bottom: 20px;
+    }
+
+    .field { margin-bottom: 18px; }
+
+    .field label {
+      display: block;
+      font-size: 9px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: #bbb;
+      margin-bottom: 7px;
+    }
+
+    .field input, .field textarea {
+      width: 100%;
+      border: none;
+      border-bottom: 1px solid #e8e8e8;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 300;
+      padding: 4px 0;
+      outline: none;
+      background: transparent;
+      color: #111;
+    }
+    .field input:focus, .field textarea:focus {
+      border-bottom-color: #111;
+    }
+    .field textarea { resize: none; height: 68px; line-height: 1.6; }
+
+    .form-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 22px;
+    }
+    .form-actions .btn { flex: 1; text-align: center; }
   </style>
 </head>
 <body>
@@ -156,31 +231,31 @@
     <span></span>
   </nav>
 
-  <!-- Step 1 -->
+  <!-- Step 1: Upload -->
   <div id="step-upload">
     <h2>Ask — Desk</h2>
-    <p>당신의 책상을 업로드하세요.<br>3D 스캔 파일(GLB)이 필요합니다.</p>
-    <button class="btn-primary" id="btn-google-login">Google로 로그인</button>
-    <div id="login-status" style="font-size:11px;color:#888;display:none;">
-      <span id="login-name"></span> &nbsp;·&nbsp;
-      <button id="btn-select-file" class="btn-primary" style="display:inline-block;">GLB 파일 선택</button>
+    <p class="sub">당신의 책상을 업로드하세요.<br>3D 스캔 파일 (GLB) 이 필요합니다.</p>
+    <div id="upload-area">
+      <button class="btn" id="btn-google-login">Google로 로그인</button>
+      <div id="login-status">
+        <span id="login-name"></span>
+        <button id="btn-select-file" class="btn">GLB 파일 선택</button>
+      </div>
+      <input type="file" id="file-input" accept=".glb">
+      <div id="upload-progress">업로드 중…</div>
     </div>
-    <input type="file" id="file-input" accept=".glb">
-    <div id="upload-progress" style="font-size:11px;color:#888;display:none;">업로드 중…</div>
   </div>
 
-  <!-- Step 2 -->
-  <div id="step-viewpoint">
-    <p>마우스로 원하는 시점을 잡은 뒤<br>저장하세요.</p>
-    <button class="btn-primary" id="btn-save-viewpoint">이 시점으로 저장</button>
+  <!-- Step 2: Viewpoint -->
+  <div class="bottom-bar" id="step-viewpoint">
+    <p>드래그로 시점을 잡고 저장하세요.</p>
+    <button class="btn-ghost" id="btn-save-viewpoint">시점 저장</button>
   </div>
 
-  <!-- Step 3 -->
-  <div id="step-points">
-    <p>사물을 클릭해 포인트를 지정하세요.<br>완료되면 제출합니다.</p>
-    <div style="display:flex;gap:12px;">
-      <button class="btn-primary" id="btn-done-points">제출하기</button>
-    </div>
+  <!-- Step 3: Points -->
+  <div class="bottom-bar" id="step-points">
+    <p>사물을 클릭해 포인트를 지정하세요.</p>
+    <button class="btn-ghost" id="btn-done-points">완료 · 제출하기</button>
   </div>
 
   <!-- Metadata form -->
@@ -198,22 +273,21 @@
       <label>기억 메모</label>
       <textarea id="f-memo" placeholder="이 사물에서 떠오르는 기억…"></textarea>
     </div>
-    <div class="form-row">
-      <button class="btn-primary" id="btn-meta-cancel" style="flex:1;">취소</button>
-      <button class="btn-primary" id="btn-meta-save" style="flex:1;">저장</button>
+    <div class="form-actions">
+      <button class="btn" id="btn-meta-cancel">취소</button>
+      <button class="btn" id="btn-meta-save">저장</button>
     </div>
   </div>
 
   <!-- Step submit -->
-  <div id="step-submit">
+  <div class="bottom-bar" id="step-submit">
     <p id="submit-status"></p>
-    <button class="btn-primary" id="btn-submit">Sheets에 제출</button>
+    <button class="btn-ghost" id="btn-submit">Sheets에 제출</button>
   </div>
 
   <div id="crosshair"></div>
 </div>
 
-<!-- Three.js canvas is appended by editor.js -->
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>

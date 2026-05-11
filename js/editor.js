@@ -85,32 +85,32 @@ window.addEventListener('resize', () => {
 
 // ── Step helpers ──
 function setStep(name) {
-  ['step-upload','step-viewpoint','step-points','step-submit'].forEach(id => {
+  document.getElementById('step-upload').style.display = 'none';
+  ['step-viewpoint','step-points','step-submit'].forEach(id => {
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById('crosshair').style.display = 'none';
   document.getElementById('step-indicator').textContent = '';
 
-  if (name === 'upload')    {
+  if (name === 'upload') {
     document.getElementById('step-upload').style.display = 'flex';
   } else if (name === 'viewpoint') {
-    document.getElementById('step-viewpoint').style.display = 'block';
-    document.getElementById('step-indicator').textContent = 'STEP 1 — 드래그: 회전 · 스크롤: 줌 · 우클릭: 패닝';
+    document.getElementById('step-viewpoint').style.display = 'flex';
+    document.getElementById('step-indicator').textContent = '01 — viewpoint';
     orbit.enabled = true;
   } else if (name === 'points') {
-    document.getElementById('step-points').style.display = 'block';
-    document.getElementById('step-indicator').textContent = 'STEP 2 — 드래그: 시선 · 클릭: 포인트 지정';
+    document.getElementById('step-points').style.display = 'flex';
+    document.getElementById('step-indicator').textContent = '02 — points';
     document.getElementById('crosshair').style.display = 'block';
     orbit.enabled = false;
     lookMode = true;
-    // 저장된 시점에서 lookYaw/lookPitch 초기화
     const d = new THREE.Vector3();
     camera.getWorldDirection(d);
     lookYaw   = Math.atan2(d.x, d.z);
     lookPitch = Math.asin(Math.max(-1, Math.min(1, d.y)));
   } else if (name === 'submit') {
-    document.getElementById('step-submit').style.display = 'block';
-    document.getElementById('step-indicator').textContent = 'STEP 3 — 제출';
+    document.getElementById('step-submit').style.display = 'flex';
+    document.getElementById('step-indicator').textContent = '03 — submit';
     orbit.enabled = false;
     lookMode = false;
     buildSubmitPreview();
@@ -135,7 +135,7 @@ document.getElementById('btn-google-login').addEventListener('click', () => {
 
 function showLoggedIn() {
   document.getElementById('btn-google-login').style.display = 'none';
-  document.getElementById('login-status').style.display = 'block';
+  document.getElementById('login-status').style.display = 'flex';
   fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` }
   }).then(r => r.json()).then(u => {
