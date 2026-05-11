@@ -503,6 +503,7 @@ function openMetaForm(point = null) {
   const form = document.getElementById('meta-form');
   form.style.display = 'flex';
   form.style.flexDirection = 'column';
+  document.getElementById('btn-meta-delete').style.display = point ? 'block' : 'none';
   document.getElementById('f-name').value  = point?.name || '';
   setDateFields(point?.date || '');
   document.getElementById('f-memo').value  = point?.memo || '';
@@ -511,6 +512,17 @@ function openMetaForm(point = null) {
 document.getElementById('btn-meta-cancel').addEventListener('click', () => {
   if (pendingPoint) { scene.remove(pendingPoint.marker); pendingPoint = null; }
   editingPoint = null;
+  document.getElementById('btn-meta-delete').style.display = 'none';
+  document.getElementById('meta-form').style.display = 'none';
+});
+
+document.getElementById('btn-meta-delete').addEventListener('click', () => {
+  if (!editingPoint) return;
+  scene.remove(editingPoint.marker);
+  const idx = points.indexOf(editingPoint);
+  if (idx >= 0) points.splice(idx, 1);
+  editingPoint = null;
+  document.getElementById('btn-meta-delete').style.display = 'none';
   document.getElementById('meta-form').style.display = 'none';
 });
 
@@ -524,6 +536,7 @@ document.getElementById('btn-meta-save').addEventListener('click', () => {
     editingPoint.date = date;
     editingPoint.memo = memo;
     editingPoint = null;
+    document.getElementById('btn-meta-delete').style.display = 'none';
     document.getElementById('meta-form').style.display = 'none';
     return;
   }
@@ -534,6 +547,7 @@ document.getElementById('btn-meta-save').addEventListener('click', () => {
   pendingPoint.marker.material.map.needsUpdate = true;
   points.push({ position: pendingPoint.position, marker: pendingPoint.marker, name, date, memo });
   pendingPoint = null;
+  document.getElementById('btn-meta-delete').style.display = 'none';
   document.getElementById('meta-form').style.display = 'none';
 });
 
