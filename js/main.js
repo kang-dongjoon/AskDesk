@@ -217,7 +217,7 @@ async function fetchDriveBlobUrl(fileId) {
   let lastError = null;
   for (const attempt of attempts) {
     try {
-      const res = await fetchWithTimeout(attempt.url, attempt.options, 4500);
+      const res = await fetchWithTimeout(attempt.url, attempt.options, 18000);
       if (!res.ok) throw new Error(`Drive fetch ${res.status}`);
       const blob = await res.blob();
       await assertLikelyGLB(blob);
@@ -300,6 +300,27 @@ function rand(seed) {
 // ── Thumbnails ──
 let currentDesks = [];
 const thumbViews = [];
+const thumbQueue = [];
+let activeThumbLoads = 0;
+const MAX_THUMB_LOADS = 2;
+
+function enqueueThumbLoad(task) {
+  thumbQueue.push(task);
+  runNextThumbLoad();
+}
+
+function runNextThumbLoad() {
+  while (activeThumbLoads < MAX_THUMB_LOADS && thumbQueue.length) {
+    const task = thumbQueue.shift();
+    activeThumbLoads += 1;
+    Promise.resolve()
+      .then(task)
+      .finally(() => {
+        activeThumbLoads -= 1;
+        runNextThumbLoad();
+      });
+  }
+}
 
 async function init() {
   let desks = [];
@@ -331,7 +352,13 @@ function createThumbs(desks) {
   container.innerHTML = '';
   thumbViews.length = 0;
 
-  const visibleDesks = desks.filter(desk => desk.drive_file_id);
+  const seenDeskIds = new Set();
+  const visibleDesks = [];
+  desks.slice().reverse().forEach((desk) => {
+    if (!desk.drive_file_id || !desk.desk_id || seenDeskIds.has(desk.desk_id)) return;
+    seenDeskIds.add(desk.desk_id);
+    visibleDesks.push(desk);
+  });
   visibleDesks.forEach((desk, i) => {
     const el = document.createElement('div');
     el.className = 'thumb';
@@ -491,7 +518,7 @@ function renderDeskThumb(container, desk, index) {
     });
   }
 
-  loadThumbModel();
+  enqueueThumbLoad(loadThumbModel);
 
   function showThumbFallback(el) {
     el.classList.add('failed');
