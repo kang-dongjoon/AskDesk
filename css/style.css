@@ -357,7 +357,7 @@ body.is-empty-collection #thumbs {
 
 #panel-desk-info {
   padding: 112px 24px 22px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid #111;
   font-size: 28px;
   letter-spacing: 0;
   line-height: 1.2;
@@ -373,7 +373,7 @@ body.is-empty-collection #thumbs {
 .obj-row {
   display: grid;
   grid-template-columns: 80px 1fr;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid #111;
 }
 
 .obj-row-label {
@@ -382,7 +382,7 @@ body.is-empty-collection #thumbs {
   letter-spacing: .1em;
   text-transform: uppercase;
   color: #111;
-  border-right: 1px solid #e8e8e8;
+  border-right: 1px solid #111;
   display: flex;
   align-items: flex-start;
   padding-top: 14px;
@@ -402,7 +402,7 @@ body.is-empty-collection #thumbs {
   font-size: 14px;
   line-height: 1.75;
   color: #111;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid #111;
 }
 
 .viewer-object-empty {
@@ -439,7 +439,7 @@ body.is-empty-collection #thumbs {
   padding: 20px 24px;
   display: flex;
   justify-content: flex-end;
-  border-top: 1px solid #e8e8e8;
+  border-top: 1px solid #111;
 }
 
 /* ── LOADING ── */

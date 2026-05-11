@@ -283,7 +283,7 @@ async function verifyLandingEditPin() {
       progress.textContent = '아직 등록된 책상이 없습니다. 먼저 업로드해주세요.';
       return;
     }
-    const desk = desks.slice().reverse().find((item) => {
+    const desk = CMS.findLatestDesk(desks, (item) => {
       return (item.desk_id || '').split('-').pop() === pin;
     });
 
@@ -364,7 +364,7 @@ function createThumbs(desks) {
 
   const seenDeskIds = new Set();
   const visibleDesks = [];
-  desks.slice().reverse().forEach((desk) => {
+  CMS.sortDesksLatest(desks).forEach((desk) => {
     if (!desk.drive_file_id || !desk.desk_id || seenDeskIds.has(desk.desk_id)) return;
     seenDeskIds.add(desk.desk_id);
     visibleDesks.push(desk);

@@ -154,22 +154,21 @@ function setStep(name) {
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById('crosshair').style.display = 'none';
-  document.getElementById('btn-done').style.display = 'none';
   document.getElementById('step-indicator').textContent = '';
   lookMode = false;
 
   if (name === 'upload') {
     document.getElementById('step-upload').style.display = 'flex';
+    document.getElementById('step-indicator').textContent = '01 — upload';
   } else if (name === 'viewpoint') {
     document.getElementById('step-viewpoint').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = '01 — viewpoint';
+    document.getElementById('step-indicator').textContent = '02 — viewpoint';
     orbitVertOffset = 0;
     orbit.enabled = true;
   } else if (name === 'points') {
     document.getElementById('step-points').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = '02';
+    document.getElementById('step-indicator').textContent = '03 — objects';
     document.getElementById('crosshair').style.display = 'block';
-    document.getElementById('btn-done').style.display = 'inline-block';
     orbit.enabled = false;
     lookMode = true;
     const d = new THREE.Vector3();
@@ -180,7 +179,7 @@ function setStep(name) {
     lookVertOffset = 0;
   } else if (name === 'submit') {
     document.getElementById('step-submit').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = '03 — submit';
+    document.getElementById('step-indicator').textContent = '04 — submit';
     orbit.enabled = false;
     lookMode = false;
     buildSubmitPreview();
@@ -254,7 +253,7 @@ async function loadEditByPin(pin) {
 
   try {
     const desks = await CMS.fetchDesks();
-    const desk = desks.slice().reverse().find((item) => {
+    const desk = CMS.findLatestDesk(desks, (item) => {
       return (item.desk_id || '').split('-').pop() === pin;
     });
 
@@ -584,7 +583,7 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
       cam_target_x: savedTarget.x,
       cam_target_y: savedTarget.y,
       cam_target_z: savedTarget.z,
-      upload_date:  new Date().toISOString().slice(0, 10),
+      upload_date:  new Date().toISOString(),
     },
     objects: points.map((p, i) => ({
       desk_id:        deskId,
@@ -638,15 +637,6 @@ async function waitForDeskSaved(deskId) {
   return false;
 }
 
-// Done 버튼 = 제출
-document.getElementById('btn-done').addEventListener('click', () => {
-  if (document.getElementById('step-submit').style.display === 'flex') {
-    document.getElementById('btn-submit').click();
-  } else {
-    setStep('submit');
-  }
-});
-
 async function initEditMode() {
   if (initialDriveFileId) {
     driveFileId = initialDriveFileId;
@@ -685,7 +675,7 @@ async function initEditMode() {
 async function loadEditDesk() {
   try {
     const desks = await CMS.fetchDesks();
-    editDesk = desks.slice().reverse().find(d => d.desk_id === editDeskId);
+    editDesk = CMS.findLatestDesk(desks, d => d.desk_id === editDeskId);
     editObjects = await CMS.fetchObjects(editDeskId);
   } catch (err) {
     console.error(err);

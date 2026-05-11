@@ -27,8 +27,8 @@
     #editor-nav {
       position: absolute;
       top: 0; left: 0; right: 0;
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
       align-items: center;
       padding: 18px 24px;
       pointer-events: all;
@@ -52,6 +52,7 @@
 
     #step-indicator {
       display: inline-block;
+      justify-self: center;
       font-size: 12px;
       letter-spacing: .14em;
       text-transform: uppercase;
@@ -63,7 +64,12 @@
     }
 
     #step-indicator:empty {
-      display: none;
+      visibility: hidden;
+    }
+
+    #editor-nav-spacer {
+      visibility: hidden;
+      pointer-events: none;
     }
 
     /* ── Upload screen ── */
@@ -319,7 +325,7 @@
   <nav id="editor-nav">
     <a href="index.html" class="nav-btn-editor" id="btn-back">Back</a>
     <span id="step-indicator"></span>
-    <button class="nav-btn-editor" id="btn-done" style="display:none;">Done</button>
+    <span class="nav-btn-editor" id="editor-nav-spacer">Back</span>
   </nav>
 
   <!-- Step 1: Upload -->
