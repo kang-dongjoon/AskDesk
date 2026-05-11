@@ -218,28 +218,24 @@ function loadGLB(fileId) {
       new THREE.GLTFLoader().load(blobUrl, (gltf) => {
         URL.revokeObjectURL(blobUrl);
         const model = gltf.scene;
-
-      // 뷰어와 동일한 정규화: 크기 1 기준, 중심 원점
-      const box    = new THREE.Box3().setFromObject(model);
-      const size   = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      const scale  = 1.0 / Math.max(size.x, size.y, size.z);
-      model.scale.setScalar(scale);
-      model.position.sub(center.multiplyScalar(scale));
-
-      // 모든 메쉬 DoubleSide → 뒷면도 raycasting 가능
-      model.traverse(c => {
-        if (c.isMesh) {
-          c.material = Array.isArray(c.material)
-            ? c.material.map(m => { const n = m.clone(); n.side = THREE.DoubleSide; return n; })
-            : (() => { const n = c.material.clone(); n.side = THREE.DoubleSide; return n; })();
-        }
-      });
-
         scene.add(model);
+        model.updateMatrixWorld(true);
 
-        camera.position.set(0, 0.6, 1.4);
-        orbit.target.set(0, 0, 0);
+        // bbox 기반으로 카메라/orbit 맞추기 (모델 변형 없음)
+        const box    = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        const size   = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+
+        // DoubleSide → 뒷면도 raycasting 가능
+        model.traverse(c => {
+          if (!c.isMesh) return;
+          const fix = m => Object.assign(m.clone(), { side: THREE.DoubleSide });
+          c.material = Array.isArray(c.material) ? c.material.map(fix) : fix(c.material);
+        });
+
+        orbit.target.copy(center);
+        camera.position.set(center.x, center.y + maxDim * 0.5, center.z + maxDim * 2.0);
         orbit.update();
 
         resolve();
