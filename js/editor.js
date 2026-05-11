@@ -260,10 +260,13 @@ function makeMarkerTexture(char) {
   cv.width = cv.height = sz;
   const ctx = cv.getContext('2d');
   ctx.beginPath();
-  ctx.arc(sz/2, sz/2, sz/2 - 2, 0, Math.PI * 2);
-  ctx.fillStyle = '#666666';
-  ctx.fill();
+  ctx.arc(sz/2, sz/2, sz/2 - 4, 0, Math.PI * 2);
   ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.strokeStyle = '#111111';
+  ctx.lineWidth = 6;
+  ctx.stroke();
+  ctx.fillStyle = '#111111';
   ctx.font = '700 62px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
