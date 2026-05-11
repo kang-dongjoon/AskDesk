@@ -3,12 +3,16 @@ function fitHero() {
   const el = document.querySelector('.hero');
   if (!el) return;
   el.style.fontSize = '100px';
-  const availW = window.innerWidth - 48; // padding 24px * 2
-  const scale  = availW / el.scrollWidth;
-  el.style.fontSize = Math.floor(100 * scale) + 'px';
+  el.style.width = 'fit-content';       // 블록 → 텍스트 폭만 측정
+  const textW = el.offsetWidth;
+  el.style.width = '';
+  if (!textW) return;
+  const availW = window.innerWidth - 48; // 패딩 24px × 2
+  el.style.fontSize = Math.floor(100 * availW / textW) + 'px';
 }
+
+document.fonts.ready.then(fitHero);     // 폰트 로드 후 실행
 window.addEventListener('resize', fitHero);
-fitHero();
 
 // ── Panel ──
 const panel   = document.getElementById('panel');

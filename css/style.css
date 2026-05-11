@@ -17,8 +17,8 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
 .nav-btn {
   display: inline-block;
   border: 1px solid #111;
-  padding: 5px 14px;
-  font-size: 11px;
+  padding: 7px 18px;
+  font-size: 12px;
   font-weight: 300;
   letter-spacing: .06em;
   cursor: pointer;
@@ -26,6 +26,7 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
   color: #111;
   line-height: 1.4;
   transition: opacity 150ms;
+  text-decoration: none;
 }
 .nav-btn:hover { opacity: .5; }
 
