@@ -57,10 +57,10 @@ function applyFlyCamera() {
   const up    = new THREE.Vector3(0, 1, 0);
   if (keys['KeyW']) camera.position.addScaledVector(fwd,   FLY_SPEED);
   if (keys['KeyS']) camera.position.addScaledVector(fwd,  -FLY_SPEED);
-  if (keys['KeyA']) camera.position.addScaledVector(right, -FLY_SPEED);
-  if (keys['KeyD']) camera.position.addScaledVector(right,  FLY_SPEED);
-  if (keys['KeyE']) camera.position.addScaledVector(up,    FLY_SPEED);
-  if (keys['KeyQ']) camera.position.addScaledVector(up,   -FLY_SPEED);
+  if (keys['KeyA']) camera.position.addScaledVector(right,  FLY_SPEED);
+  if (keys['KeyD']) camera.position.addScaledVector(right, -FLY_SPEED);
+  if (keys['KeyQ']) camera.position.addScaledVector(up,    FLY_SPEED);
+  if (keys['KeyE']) camera.position.addScaledVector(up,   -FLY_SPEED);
   camera.lookAt(camera.position.clone().add(fwd));
 }
 
