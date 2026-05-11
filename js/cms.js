@@ -1,46 +1,33 @@
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/10Z8y13h03lpk1IoT0M3HsPw9ApVEGBI5IliDzFIp3y4/export?format=csv&gid=0';
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+  return lines.slice(1).map(line => {
+    const values = [];
+    let cur = '', inQ = false;
+    for (const c of line) {
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { values.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    values.push(cur.trim());
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (values[i] || '').replace(/^"|"$/g, ''); });
+    return obj;
+  }).filter(r => r[headers[0]]);
+}
+
+async function fetchSheet(name) {
+  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${name}`;
+  const res  = await fetch(url);
+  return parseCSV(await res.text());
+}
 
 window.CMS = {
-  objects: [],
-
-  async fetchObjects() {
-    const res  = await fetch(SHEET_URL);
-    const text = await res.text();
-    const rows = text.trim().split('\n').slice(1); // 헤더 제거
-    this.objects = rows.map(row => {
-      const [object_id, name, collected_date, memory_note, x, y, z] = row.split(',');
-      return {
-        object_id:      object_id?.trim(),
-        name:           name?.trim(),
-        collected_date: collected_date?.trim(),
-        memory_note:    memory_note?.trim(),
-        x: parseFloat(x),
-        y: parseFloat(y),
-        z: parseFloat(z),
-      };
-    }).filter(o => o.object_id);
-    return this.objects;
+  async fetchDesks() {
+    return fetchSheet('desks');
   },
-
-  async startTransition() {
-    const overlay = document.getElementById('loading');
-    const text    = document.getElementById('loading-text');
-    overlay.classList.remove('hidden');
-
-    text.textContent = '수집 중…';
-
-    try {
-      const objects = await this.fetchObjects();
-      text.textContent = `지금까지 수집된 ${objects.length}개의 사물`;
-    } catch (e) {
-      text.textContent = '사물을 불러오는 중 오류가 발생했습니다';
-      console.error(e);
-    }
-
-    // 2초 후 PAGE 2 진입 (추후 page2.js 연결)
-    setTimeout(() => {
-      overlay.classList.add('hidden');
-      // TODO: initPage2()
-    }, 2000);
+  async fetchObjects(desk_id) {
+    const all = await fetchSheet('objects');
+    return all.filter(o => o.desk_id === desk_id);
   },
 };

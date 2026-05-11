@@ -1,28 +1,44 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AskDesk</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ask — Desk</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div id="loading">
-    <span id="loading-text">loading…</span>
+
+  <nav id="nav">
+    <a href="#collection">Desks</a>
+    <button id="nav-how">how</button>
+  </nav>
+
+  <aside id="panel">
+    <div id="panel-top">
+      <p>사물은 수집된다.<br>사물은 기억한다.</p>
+      <p>수집가의 작업실 책상 위 사물들을 수집하는 개인적 아카이브. 타인은 공감이나 지식보다 "질문의 전염"을 경험하게 된다.</p>
+    </div>
+    <hr id="panel-divider">
+    <div id="panel-bottom">
+      <a href="editor.html">upload</a>
+    </div>
+  </aside>
+
+  <div id="page">
+
+    <section id="landing">
+      <h1 class="hero">Ask — Desk</h1>
+    </section>
+
+    <section id="collection">
+      <div id="thumbs"></div>
+      <div class="collection-footer">Ask — Desk</div>
+    </section>
+
   </div>
 
-  <button id="dev-toggle" style="
-    position:fixed; top:12px; right:12px; z-index:99;
-    background:rgba(0,0,0,0.6); color:#aaa; border:1px solid #444;
-    font-family:monospace; font-size:11px; padding:4px 10px;
-    cursor:pointer; border-radius:3px;
-  ">orbit: OFF</button>
-
-  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="js/viewer.js"></script>
-  <script src="js/interaction.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/cms.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
