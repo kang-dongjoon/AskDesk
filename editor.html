@@ -278,8 +278,8 @@
 
     .date-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 104px;
-      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) 112px;
+      gap: 18px;
       align-items: center;
     }
 
@@ -291,9 +291,9 @@
     .unknown-check {
       display: inline-flex;
       align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      font-size: 11px;
+      justify-content: flex-start;
+      gap: 10px;
+      font-size: 12px;
       letter-spacing: 0;
       text-transform: none;
       color: #111;
@@ -301,7 +301,11 @@
     }
 
     .unknown-check input {
-      width: auto;
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      padding: 0;
       border: 0;
       accent-color: #111;
     }
