@@ -2,13 +2,19 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scrollbar-gutter: stable; }
-
-body.app-view {
+html,
+body,
+body.app-view,
+#viewer-panel,
+#panel-objects {
   scrollbar-width: none;
 }
 
-body.app-view::-webkit-scrollbar {
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+body.app-view::-webkit-scrollbar,
+#viewer-panel::-webkit-scrollbar,
+#panel-objects::-webkit-scrollbar {
   display: none;
 }
 
