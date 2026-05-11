@@ -11,7 +11,8 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.domElement.style.cssText = 'position:fixed;inset:0;z-index:0;';
+// cssText 대신 개별 적용 — Three.js가 setSize로 잡아준 width/height 유지
+Object.assign(renderer.domElement.style, { position:'fixed', top:'0', left:'0', zIndex:'0' });
 document.body.prepend(renderer.domElement);
 
 const scene  = new THREE.Scene();
@@ -52,9 +53,10 @@ renderer.domElement.addEventListener('mouseup', e => {
 renderer.domElement.addEventListener('mouseleave', () => lookDrag = false);
 renderer.domElement.addEventListener('mousemove', e => {
   if (!lookMode || !lookDrag) return;
+  const rect = renderer.domElement.getBoundingClientRect();
   movedPx   = Math.hypot(e.clientX - downX, e.clientY - downY);
-  lookYaw  -= (e.clientX - lookLX) / innerWidth  * 2.5;
-  lookPitch -= (e.clientY - lookLY) / innerHeight * 2.0;
+  lookYaw  -= (e.clientX - lookLX) / rect.width  * 2.5;
+  lookPitch -= (e.clientY - lookLY) / rect.height * 2.0;
   lookPitch  = Math.max(-1.4, Math.min(1.4, lookPitch));
   lookLX = e.clientX; lookLY = e.clientY;
   applyLook();
@@ -287,8 +289,9 @@ function placePoint(e) {
 
   camera.updateMatrixWorld();
 
-  mouse.x =  (e.clientX / innerWidth)  * 2 - 1;
-  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+  mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
 
   const meshes = [];
