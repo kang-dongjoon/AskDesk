@@ -25,68 +25,48 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
 dirLight.position.set(2, 4, 3);
 scene.add(dirLight);
 
-// ── Fly camera ──
-let flyMode  = false;
-let lookMode = false; // 시점 고정, 시선만 변경 (points 단계)
-let flyYaw   = 0;
-let flyPitch = 0;
-let flyDrag  = false;
-let flyLX    = 0, flyLY = 0;
-const keys   = {};
-const FLY_SPEED = 0.004;
+// ── OrbitControls (시점 설정 단계) ──
+const orbit = new THREE.OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.dampingFactor = 0.08;
+orbit.enabled = false;
 
-document.addEventListener('keydown', e => { keys[e.code] = true; });
-document.addEventListener('keyup',   e => { keys[e.code] = false; });
-
+// ── Look-only mode (포인트 지정 단계) ──
+let lookMode = false;
+let lookYaw = 0, lookPitch = 0;
+let lookDrag = false, lookLX = 0, lookLY = 0;
 let downX = 0, downY = 0, movedPx = 0;
 
 renderer.domElement.addEventListener('mousedown', e => {
-  if (!flyMode && !lookMode) return;
-  flyDrag = true;
-  flyLX = e.clientX; flyLY = e.clientY;
-  downX = e.clientX; downY = e.clientY;
+  if (!lookMode) return;
+  lookDrag = true;
+  lookLX = e.clientX; lookLY = e.clientY;
+  downX  = e.clientX; downY  = e.clientY;
   movedPx = 0;
 });
 renderer.domElement.addEventListener('mouseup', e => {
-  if (!flyDrag) return;
-  flyDrag = false;
-  // 움직임이 작으면 → 클릭으로 처리 (포인트 지정)
-  if (lookMode && movedPx < 5) placePoint(e);
+  if (!lookDrag) return;
+  lookDrag = false;
+  if (movedPx < 5) placePoint(e);
 });
-renderer.domElement.addEventListener('mouseleave', () => flyDrag = false);
+renderer.domElement.addEventListener('mouseleave', () => lookDrag = false);
 renderer.domElement.addEventListener('mousemove', e => {
-  if ((!flyMode && !lookMode) || !flyDrag) return;
-  movedPx = Math.hypot(e.clientX - downX, e.clientY - downY);
-  flyYaw   -= (e.clientX - flyLX) / innerWidth  * 2.5;
-  flyPitch -= (e.clientY - flyLY) / innerHeight * 2.0;
-  flyPitch  = Math.max(-1.4, Math.min(1.4, flyPitch));
-  flyLX = e.clientX; flyLY = e.clientY;
+  if (!lookMode || !lookDrag) return;
+  movedPx   = Math.hypot(e.clientX - downX, e.clientY - downY);
+  lookYaw  -= (e.clientX - lookLX) / innerWidth  * 2.5;
+  lookPitch -= (e.clientY - lookLY) / innerHeight * 2.0;
+  lookPitch  = Math.max(-1.4, Math.min(1.4, lookPitch));
+  lookLX = e.clientX; lookLY = e.clientY;
   applyLook();
 });
-
-function getFwd() {
-  return new THREE.Vector3(
-    Math.sin(flyYaw)*Math.cos(flyPitch),
-    Math.sin(flyPitch),
-    Math.cos(flyYaw)*Math.cos(flyPitch)
-  );
-}
 
 function applyLook() {
-  camera.lookAt(camera.position.clone().add(getFwd()));
-}
-
-function applyFlyCamera() {
-  const fwd   = getFwd();
-  const right = new THREE.Vector3(Math.cos(flyYaw), 0, -Math.sin(flyYaw));
-  const up    = new THREE.Vector3(0, 1, 0);
-  if (keys['KeyW']) camera.position.addScaledVector(fwd,   FLY_SPEED);
-  if (keys['KeyS']) camera.position.addScaledVector(fwd,  -FLY_SPEED);
-  if (keys['KeyA']) camera.position.addScaledVector(right,  FLY_SPEED);
-  if (keys['KeyD']) camera.position.addScaledVector(right, -FLY_SPEED);
-  if (keys['KeyE']) camera.position.addScaledVector(up,    FLY_SPEED);
-  if (keys['KeyQ']) camera.position.addScaledVector(up,   -FLY_SPEED);
-  applyLook();
+  const fwd = new THREE.Vector3(
+    Math.sin(lookYaw) * Math.cos(lookPitch),
+    Math.sin(lookPitch),
+    Math.cos(lookYaw) * Math.cos(lookPitch)
+  );
+  camera.lookAt(camera.position.clone().add(fwd));
 }
 
 window.addEventListener('resize', () => {
@@ -97,7 +77,7 @@ window.addEventListener('resize', () => {
 
 (function loop() {
   requestAnimationFrame(loop);
-  if (flyMode) applyFlyCamera();
+  if (orbit.enabled) orbit.update();
   renderer.render(scene, camera);
 })();
 
@@ -113,23 +93,23 @@ function setStep(name) {
     document.getElementById('step-upload').style.display = 'flex';
   } else if (name === 'viewpoint') {
     document.getElementById('step-viewpoint').style.display = 'block';
-    document.getElementById('step-indicator').textContent = 'STEP 1 — 시점 설정 · WASD 이동 · QE 상하 · 드래그 시선';
-    flyMode = true;
-    // 현재 카메라 방향에서 yaw/pitch 초기화
-    const d = new THREE.Vector3();
-    camera.getWorldDirection(d);
-    flyYaw   = Math.atan2(d.x, d.z);
-    flyPitch = Math.asin(Math.max(-1, Math.min(1, d.y)));
+    document.getElementById('step-indicator').textContent = 'STEP 1 — 드래그: 회전 · 스크롤: 줌 · 우클릭: 패닝';
+    orbit.enabled = true;
   } else if (name === 'points') {
     document.getElementById('step-points').style.display = 'block';
-    document.getElementById('step-indicator').textContent = 'STEP 2 — 포인트 지정 · 드래그로 시선 조정';
+    document.getElementById('step-indicator').textContent = 'STEP 2 — 드래그: 시선 · 클릭: 포인트 지정';
     document.getElementById('crosshair').style.display = 'block';
-    flyMode = false;
+    orbit.enabled = false;
     lookMode = true;
+    // 저장된 시점에서 lookYaw/lookPitch 초기화
+    const d = new THREE.Vector3();
+    camera.getWorldDirection(d);
+    lookYaw   = Math.atan2(d.x, d.z);
+    lookPitch = Math.asin(Math.max(-1, Math.min(1, d.y)));
   } else if (name === 'submit') {
     document.getElementById('step-submit').style.display = 'block';
     document.getElementById('step-indicator').textContent = 'STEP 3 — 제출';
-    flyMode = false;
+    orbit.enabled = false;
     lookMode = false;
     buildSubmitPreview();
   }
@@ -258,11 +238,9 @@ function loadGLB(fileId) {
 
         scene.add(model);
 
-        // 정규화 후 모델은 약 1유닛 크기, 중심 원점
-        // 약간 위+앞에서 내려다보는 시점으로 초기화
         camera.position.set(0, 0.6, 1.4);
-        camera.lookAt(0, 0, 0);
-        camera.updateMatrixWorld(true);
+        orbit.target.set(0, 0, 0);
+        orbit.update();
 
         resolve();
       }, undefined, (err) => { URL.revokeObjectURL(blobUrl); reject(err); });
@@ -272,13 +250,8 @@ function loadGLB(fileId) {
 
 // ── Step 2: Save viewpoint ──
 document.getElementById('btn-save-viewpoint').addEventListener('click', () => {
-  const fwd = new THREE.Vector3(
-    Math.sin(flyYaw)*Math.cos(flyPitch),
-    Math.sin(flyPitch),
-    Math.cos(flyYaw)*Math.cos(flyPitch)
-  );
   savedPos    = camera.position.clone();
-  savedTarget = camera.position.clone().addScaledVector(fwd, 1.0);
+  savedTarget = orbit.target.clone();
   setStep('points');
 });
 
