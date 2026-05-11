@@ -190,7 +190,11 @@ function getStoredAccessToken() {
 
 async function fetchDriveBlobUrl(fileId) {
   const token = getStoredAccessToken();
-  await assertDriveFileActive(fileId, token);
+  try {
+    await assertDriveFileActive(fileId, token);
+  } catch (err) {
+    console.warn('Drive metadata check skipped', fileId, err);
+  }
   const attempts = [
     {
       url: `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${token ? '' : `&key=${CONFIG.API_KEY}`}`,
