@@ -599,6 +599,29 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
 
   const uuid   = crypto.randomUUID ? crypto.randomUUID().split('-')[0] : Date.now().toString(36);
   const deskId = editDeskId || `${uuid}-${pin}`;
+  const submittedAt = new Date().toISOString();
+  const objectVersion = submittedAt.replace(/[^0-9A-Za-z]/g, '');
+  const objectRows = points.length
+    ? points.map((p, i) => ({
+        desk_id:        deskId,
+        object_id:      `${deskId}_${objectVersion}_${i}`,
+        name:           p.name,
+        collected_date: p.date,
+        memory_note:    p.memo,
+        x:              p.position.x,
+        y:              p.position.y,
+        z:              p.position.z,
+      }))
+    : [{
+        desk_id:        deskId,
+        object_id:      `${deskId}_${objectVersion}_0`,
+        name:           '',
+        collected_date: '',
+        memory_note:    '',
+        x:              '',
+        y:              '',
+        z:              '',
+      }];
 
   const payload = {
     desk: {
@@ -611,18 +634,9 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
       cam_target_x: savedTarget.x,
       cam_target_y: savedTarget.y,
       cam_target_z: savedTarget.z,
-      upload_date:  new Date().toISOString(),
+      upload_date:  submittedAt,
     },
-    objects: points.map((p, i) => ({
-      desk_id:        deskId,
-      object_id:      `${deskId}_${i}`,
-      name:           p.name,
-      collected_date: p.date,
-      memory_note:    p.memo,
-      x:              p.position.x,
-      y:              p.position.y,
-      z:              p.position.z,
-    })),
+    objects: objectRows,
   };
 
   try {

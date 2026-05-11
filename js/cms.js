@@ -42,6 +42,39 @@ function findLatestDesk(desks, predicate) {
   return sortDesksLatest(desks).find(predicate);
 }
 
+function getObjectIndex(row) {
+  const parts = String(row?.object_id || '').split('_');
+  const index = Number.parseInt(parts[parts.length - 1], 10);
+  return Number.isFinite(index) ? index : null;
+}
+
+function latestObjectBatch(rows) {
+  const batches = [];
+  let current = [];
+
+  rows
+    .slice()
+    .sort((a, b) => (a.__rowIndex || 0) - (b.__rowIndex || 0))
+    .forEach(row => {
+      const index = getObjectIndex(row);
+      if (index === 0 && current.length) {
+        batches.push(current);
+        current = [];
+      }
+      current.push(row);
+    });
+
+  if (current.length) batches.push(current);
+  return batches[batches.length - 1] || [];
+}
+
+function hasObjectPosition(row) {
+  const x = parseFloat(row.x);
+  const y = parseFloat(row.y);
+  const z = parseFloat(row.z);
+  return ![x, y, z].some(Number.isNaN);
+}
+
 async function fetchSheet(name) {
   const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${name}`;
   const res  = await fetch(url);
@@ -54,7 +87,7 @@ window.CMS = {
   },
   async fetchObjects(desk_id) {
     const all = await fetchSheet('objects');
-    return all.filter(o => o.desk_id === desk_id);
+    return latestObjectBatch(all.filter(o => o.desk_id === desk_id)).filter(hasObjectPosition);
   },
   sortDesksLatest,
   findLatestDesk,
