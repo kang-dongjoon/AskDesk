@@ -100,8 +100,9 @@ function setStep(name) {
     orbit.enabled = true;
   } else if (name === 'points') {
     document.getElementById('step-points').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = '02 — points';
+    document.getElementById('step-indicator').textContent = '02';
     document.getElementById('crosshair').style.display = 'block';
+    document.getElementById('btn-done').style.display = 'inline-block';
     orbit.enabled = false;
     lookMode = true;
     const d = new THREE.Vector3();
@@ -359,7 +360,9 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
   btn.textContent = '제출 중…';
   btn.disabled = true;
 
-  const deskId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36);
+  const pin    = String(document.getElementById('pin-input').value || '0000').slice(0, 4).padStart(4, '0');
+  const uuid   = crypto.randomUUID ? crypto.randomUUID().split('-')[0] : Date.now().toString(36);
+  const deskId = `${uuid}-${pin}`;
 
   const payload = {
     desk: {
@@ -403,6 +406,11 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
     btn.textContent = '다시 제출';
     btn.disabled = false;
   }
+});
+
+// Done 버튼 = 제출
+document.getElementById('btn-done').addEventListener('click', () => {
+  document.getElementById('btn-submit').click();
 });
 
 // ── Init ──

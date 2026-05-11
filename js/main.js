@@ -1,9 +1,9 @@
 // ── Panel ──
-const panel  = document.getElementById('panel');
-const page   = document.getElementById('page');
-const btnHow = document.getElementById('nav-how');
+const panel   = document.getElementById('panel');
+const page    = document.getElementById('page');
+const btnDesk = document.getElementById('nav-desk');
 
-btnHow.addEventListener('click', () => {
+btnDesk.addEventListener('click', () => {
   const open = panel.classList.toggle('open');
   page.classList.toggle('shifted', open);
 });
@@ -29,7 +29,7 @@ function renderThumbs(desks) {
   container.style.height = H + 'px';
 
   desks.forEach((desk, i) => {
-    const el  = document.createElement('div');
+    const el = document.createElement('div');
     el.className = 'thumb';
 
     const w   = 180 + rand(i * 7) * 100;
@@ -38,11 +38,18 @@ function renderThumbs(desks) {
     const y   = rand(i * 3 + 1) * (H - h - 40) + 20;
     const rot = (rand(i * 3 + 2) - 0.5) * 10;
 
-    el.style.cssText = `
-      width:${w}px; height:${h}px;
-      left:${x}px; top:${y}px;
-      transform:rotate(${rot}deg);
-    `;
+    el.style.cssText = `width:${w}px;height:${h}px;left:${x}px;top:${y}px;transform:rotate(${rot}deg);`;
+
+    // 텍스처 썸네일이 있으면 호버 시 표시
+    if (desk.thumbnail_url) {
+      el.classList.add('has-texture');
+      el.addEventListener('mouseenter', () => {
+        el.style.backgroundImage = `url(${desk.thumbnail_url})`;
+      });
+      el.addEventListener('mouseleave', () => {
+        el.style.backgroundImage = '';
+      });
+    }
 
     const label = document.createElement('div');
     label.className = 'thumb-label';

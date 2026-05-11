@@ -34,8 +34,8 @@ let lastPinchDist = null;
 
 // ── Panel ──
 const panel  = document.getElementById('viewer-panel');
-const btnWhat = document.getElementById('btn-what');
-btnWhat.addEventListener('click', () => panel.classList.toggle('open'));
+const btnAsk = document.getElementById('btn-ask');
+btnAsk.addEventListener('click', () => panel.classList.toggle('open'));
 
 // ── Marker geometry (shared) ──
 const markerGeo = new THREE.SphereGeometry(0.006, 12, 12);
@@ -104,22 +104,36 @@ function placeMarkers(objects) {
 
 // ── Panel content ──
 function renderPanelInfo(desk, objects) {
-  document.getElementById('panel-desk-info').innerHTML = `
-    <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#bbb;margin-bottom:12px;">${desk.owner || ''}</div>
-    <div style="font-size:11px;color:#888;letter-spacing:.04em;">${desk.upload_date || ''}</div>
-  `;
+  document.getElementById('panel-desk-info').textContent = desk.owner || '';
 
   const container = document.getElementById('panel-objects');
   objects.forEach(obj => {
-    const card = document.createElement('div');
-    card.className = 'obj-card';
-    card.innerHTML = `
-      <div class="obj-card-name">${obj.name || ''}</div>
-      <div class="obj-card-date">${obj.collected_date || ''}</div>
-      <div class="obj-card-memo">${obj.memory_note || ''}</div>
+    // 이름 행
+    const rowName = document.createElement('div');
+    rowName.className = 'obj-row';
+    rowName.innerHTML = `
+      <div class="obj-row-label">name</div>
+      <div class="obj-row-value">${obj.name || ''}</div>
     `;
-    container.appendChild(card);
+    // 날짜 행
+    const rowDate = document.createElement('div');
+    rowDate.className = 'obj-row';
+    rowDate.innerHTML = `
+      <div class="obj-row-label">date</div>
+      <div class="obj-row-value">${obj.collected_date || ''}</div>
+    `;
+    // 메모 행 (full-width)
+    const rowMemo = document.createElement('div');
+    rowMemo.className = 'obj-row-memo';
+    rowMemo.textContent = obj.memory_note || '';
+
+    container.appendChild(rowName);
+    container.appendChild(rowDate);
+    if (obj.memory_note) container.appendChild(rowMemo);
   });
+
+  // Edit 버튼 항상 표시 — PIN 검증 후 허용
+  document.getElementById('btn-edit').style.display = 'inline-block';
 }
 
 // ── Camera ──
@@ -217,5 +231,17 @@ function hideLoading() {
 function showError(msg) {
   document.getElementById('loading').textContent = msg;
 }
+
+// ── Edit PIN 검증 ──
+document.getElementById('btn-edit').addEventListener('click', () => {
+  const pin = prompt('편집 비밀번호 4자리를 입력하세요.');
+  if (!pin) return;
+  const storedPin = deskId.split('-').pop();
+  if (pin.padStart(4, '0') === storedPin) {
+    location.href = `editor.html?edit=${encodeURIComponent(deskId)}`;
+  } else {
+    alert('비밀번호가 일치하지 않습니다.');
+  }
+});
 
 init();

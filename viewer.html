@@ -11,14 +11,16 @@
   <div id="loading">loading…</div>
 
   <nav id="viewer-nav">
-    <a href="index.html">home</a>
-    <button id="btn-what">what</button>
+    <a href="index.html" class="nav-btn nav-btn-dark">Home</a>
+    <button id="btn-ask" class="nav-btn nav-btn-dark">Ask</button>
   </nav>
 
   <aside id="viewer-panel">
     <div id="panel-desk-info"></div>
-    <hr style="border:none;border-top:1px solid #e8e8e8;margin:24px 0;">
     <div id="panel-objects"></div>
+    <div id="panel-edit-row">
+      <button class="nav-btn" id="btn-edit" style="display:none;">Edit</button>
+    </div>
   </aside>
 
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>

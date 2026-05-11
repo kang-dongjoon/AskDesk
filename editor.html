@@ -22,15 +22,25 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 18px 28px;
-      font-size: 11px;
-      letter-spacing: .08em;
-      color: rgba(255,255,255,0.4);
+      padding: 18px 24px;
       pointer-events: all;
       z-index: 10;
     }
-    #editor-nav a { transition: color 200ms; }
-    #editor-nav a:hover { color: rgba(255,255,255,0.8); }
+
+    .nav-btn-editor {
+      display: inline-block;
+      border: 1px solid rgba(255,255,255,0.6);
+      padding: 5px 14px;
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: .06em;
+      cursor: pointer;
+      background: transparent;
+      color: rgba(255,255,255,0.6);
+      font-family: inherit;
+      transition: opacity 150ms;
+    }
+    .nav-btn-editor:hover { opacity: .5; }
 
     #step-indicator {
       font-size: 9px;
@@ -226,9 +236,9 @@
 
 <div id="ui">
   <nav id="editor-nav">
-    <a href="index.html">home</a>
+    <a href="index.html" class="nav-btn-editor" id="btn-back">Back</a>
     <span id="step-indicator"></span>
-    <span></span>
+    <button class="nav-btn-editor" id="btn-done" style="display:none;">Done</button>
   </nav>
 
   <!-- Step 1: Upload -->
@@ -281,8 +291,12 @@
 
   <!-- Step submit -->
   <div class="bottom-bar" id="step-submit">
-    <p id="submit-status"></p>
-    <button class="btn-ghost" id="btn-submit">Sheets에 제출</button>
+    <p id="submit-status">편집 비밀번호 4자리를 설정하세요.</p>
+    <input id="pin-input" type="number" maxlength="4" placeholder="0000"
+      style="width:80px;text-align:center;border:1px solid rgba(255,255,255,0.4);
+             background:transparent;color:#fff;font:inherit;font-size:18px;
+             padding:6px;letter-spacing:.2em;outline:none;">
+    <button class="btn-ghost" id="btn-submit">제출</button>
   </div>
 
   <div id="crosshair"></div>
