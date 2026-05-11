@@ -188,6 +188,10 @@ function getStoredAccessToken() {
   return token && Date.now() < exp ? token : null;
 }
 
+function getDriveApiMediaUrl(fileId) {
+  return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${CONFIG.API_KEY}`;
+}
+
 async function fetchDriveBlobUrl(fileId) {
   const token = getStoredAccessToken();
   try {
@@ -481,16 +485,23 @@ function renderDeskThumb(container, desk, index) {
 
   async function loadThumbModel() {
     let blobUrl;
+    const token = getStoredAccessToken();
+    let sourceUrl;
     try {
-      blobUrl = await fetchDriveBlobUrl(desk.drive_file_id);
+      sourceUrl = token
+        ? await fetchDriveBlobUrl(desk.drive_file_id).then(url => {
+            blobUrl = url;
+            return url;
+          })
+        : getDriveApiMediaUrl(desk.drive_file_id);
     } catch (err) {
       console.warn('thumb GLB fetch failed', desk.desk_id, err);
-      showThumbFallback(container);
+      handleThumbFailure(container, err);
       return;
     }
 
-    loader.load(blobUrl, (gltf) => {
-    URL.revokeObjectURL(blobUrl);
+    loader.load(sourceUrl, (gltf) => {
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
     const model = gltf.scene;
     container.classList.remove('failed');
     container.style.opacity = '';
@@ -512,18 +523,35 @@ function renderDeskThumb(container, desk, index) {
       child.material = silhouetteMaterial;
     });
     }, undefined, (err) => {
-      URL.revokeObjectURL(blobUrl);
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
       console.warn('thumb GLB failed', desk.desk_id, err);
-      showThumbFallback(container);
+      handleThumbFailure(container, err);
     });
   }
 
   enqueueThumbLoad(loadThumbModel);
 
+  function handleThumbFailure(el, err) {
+    const status = err?.target?.status;
+    const message = err?.message || String(err || 'unknown');
+    if (status === 404 || message.includes('404')) {
+      dropThumbView(el);
+      return;
+    }
+    showThumbFallback(el);
+  }
+
   function showThumbFallback(el) {
     el.classList.add('failed');
     el.style.opacity = '';
     renderer.domElement.remove();
+  }
+
+  function dropThumbView(el) {
+    const idx = thumbViews.findIndex(view => view?.container === el);
+    if (idx >= 0) thumbViews[idx] = null;
+    el.remove();
+    window.requestAnimationFrame(layoutThumbs);
   }
 
   container.addEventListener('mouseenter', () => {
