@@ -109,7 +109,7 @@ function encodeDeskMeta(meta) {
 }
 
 async function fetchSheet(name) {
-  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${name}`;
+  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${name}`;
   const res  = await fetch(url);
   if (!res.ok) throw new Error(`Sheet fetch failed: ${res.status}`);
   return parseCSV(await res.text());
