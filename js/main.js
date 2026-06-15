@@ -279,7 +279,7 @@ async function prepareDeclarationPrintImage(imageSrc) {
 
 async function openPrintOptions(desk, fallbackImageSrc) {
   const bar = document.getElementById('print-select-bar');
-  bar.querySelector('span').textContent = '고해상도 실루엣을 생성하는 중';
+  bar.querySelector('span').textContent = '표지 불러오는 중';
   let imageSrc = fallbackImageSrc;
   try {
     imageSrc = await renderHighResolutionPrintSource(desk);
