@@ -169,7 +169,9 @@ function setStep(name) {
   orbit.enablePan = name !== 'thumbnail';
   document.getElementById('step-upload').style.display = 'none';
   ['step-viewpoint','step-points','step-thumbnail','step-submit'].forEach(id => {
-    document.getElementById(id).style.display = 'none';
+    const step = document.getElementById(id);
+    step.style.display = 'none';
+    step.classList.remove('status-only');
   });
   document.getElementById('crosshair').style.display = 'none';
   document.getElementById('step-indicator').textContent = '';
@@ -264,6 +266,10 @@ function set상Preview(enabled) {
   points.forEach(point => {
     point.marker.visible = !enabled;
   });
+}
+
+function setBottomBarStatusOnly(status, enabled) {
+  status.closest('.bottom-bar')?.classList.toggle('status-only', enabled);
 }
 
 document.getElementById('btn-back').addEventListener('click', e => {
@@ -696,6 +702,7 @@ document.getElementById('btn-save-thumbnail').addEventListener('click', async ()
 
   button.disabled = true;
   status.textContent = '표지 저장 중';
+  setBottomBarStatusOnly(status, true);
   thumbnailPos = camera.position.clone();
   thumbnailTarget = orbit.target.clone();
 
@@ -707,6 +714,7 @@ document.getElementById('btn-save-thumbnail').addEventListener('click', async ()
   } catch (err) {
     console.error(err);
     status.textContent = '표지를 저장하지 못했습니다.';
+    setBottomBarStatusOnly(status, false);
   } finally {
     button.disabled = false;
   }
@@ -791,6 +799,8 @@ async function saveDesk(options = {}) {
   const redirectUrl = options.redirectUrl || 'index.html';
   const originalStatus = status.textContent;
   btn.disabled = true;
+  status.textContent = '저장 중';
+  setBottomBarStatusOnly(status, true);
 
   const pin    = String(document.getElementById('pin-input').value || '0000').slice(0, 4).padStart(4, '0');
   let previousDeskRowIndex = 0;
@@ -804,6 +814,7 @@ async function saveDesk(options = {}) {
       if (isUsed) {
         status.textContent = '이미 사용중인 번호입니다.';
         btn.disabled = false;
+        setBottomBarStatusOnly(status, false);
         return;
       }
     }
@@ -811,6 +822,7 @@ async function saveDesk(options = {}) {
     console.error(err);
     status.textContent = '저장 전 상태를 확인하지 못했습니다. 다시 시도해주세요.';
     btn.disabled = false;
+    setBottomBarStatusOnly(status, false);
     return;
   }
 
@@ -884,7 +896,6 @@ async function saveDesk(options = {}) {
   };
 
   try {
-    status.textContent = '저장 중';
     await fetch(CONFIG.APPS_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -901,11 +912,13 @@ async function saveDesk(options = {}) {
     } else {
       status.textContent = '전송은 완료됐지만 시트 반영을 확인하지 못했습니다.';
       btn.disabled = false;
+      setBottomBarStatusOnly(status, false);
     }
   } catch (err) {
     console.error(err);
     status.textContent = '오류가 발생했습니다. 다시 시도해주세요.';
     btn.disabled = false;
+    setBottomBarStatusOnly(status, false);
   }
   if (!btn.disabled && options.status) {
     window.setTimeout(() => {
