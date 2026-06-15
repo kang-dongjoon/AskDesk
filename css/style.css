@@ -560,11 +560,11 @@ body.is-empty-collection #thumbs {
   letter-spacing: -0.05em;
   word-spacing: 0;
   line-height: .84;
-  white-space: normal;
   padding: 0;
   display: block;
   text-align: center;
   overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 .hero sup {
@@ -580,7 +580,7 @@ body.is-empty-collection #thumbs {
 
 #page.shifted-left .hero,
 #page.shifted-right .hero {
-  white-space: normal;
+  white-space: nowrap;
 }
 
 @media (max-width: 760px) {

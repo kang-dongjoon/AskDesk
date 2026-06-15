@@ -1,11 +1,18 @@
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
-// ── Hero title: monitor 기준 크기 유지 ──
+// ── Hero title: available landing width에 맞춰 한 줄로 유지 ──
 function setHeroSize() {
   const el = document.querySelector('.hero');
   if (!el) return;
-  const base = Math.round((window.screen?.height || window.innerHeight) * 0.24);
-  const size = clamp(base, 220, 330);
+  const stageWidth = typeof getStageWidth === 'function' ? getStageWidth() : window.innerWidth;
+  const availableWidth = Math.max(320, stageWidth - 96);
+  const previousSize = el.style.fontSize;
+  el.style.fontSize = '100px';
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const measuredWidth = range.getBoundingClientRect().width || 1;
+  el.style.fontSize = previousSize;
+  const size = clamp(Math.floor(100 * availableWidth / measuredWidth), 100, 600);
   document.documentElement.style.setProperty('--hero-size', `${size}px`);
   window.requestAnimationFrame(setLandingTail);
 }
