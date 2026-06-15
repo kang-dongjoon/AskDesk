@@ -600,12 +600,14 @@ function setDateFields(value) {
   const isUnknown = value === '알 수 없음';
   unknownInput.checked = isUnknown;
   dateInput.disabled = isUnknown;
-  dateInput.value = isUnknown ? '' : (value || '').slice(0, 7);
+  dateInput.dataset.originalValue = isUnknown ? '' : (value || '');
+  dateInput.value = !isUnknown && /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value : '';
 }
 
 function getDateValue() {
   if (document.getElementById('f-date-unknown').checked) return '알 수 없음';
-  return document.getElementById('f-date').value;
+  const dateInput = document.getElementById('f-date');
+  return dateInput.value || dateInput.dataset.originalValue || '';
 }
 
 function openMetaForm(point = null) {
@@ -674,7 +676,13 @@ document.getElementById('btn-meta-save').addEventListener('click', () => {
 document.getElementById('f-date-unknown').addEventListener('change', e => {
   const dateInput = document.getElementById('f-date');
   dateInput.disabled = e.target.checked;
-  if (e.target.checked) dateInput.value = '';
+  if (e.target.checked) {
+    dateInput.value = '';
+    dateInput.dataset.originalValue = '';
+  }
+});
+document.getElementById('f-date').addEventListener('input', e => {
+  e.target.dataset.originalValue = '';
 });
 
 // ── Step 3: Done ──

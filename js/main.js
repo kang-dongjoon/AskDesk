@@ -159,8 +159,8 @@ async function renderHighResolutionPrintSource(desk) {
     gl.getParameter(gl.MAX_TEXTURE_SIZE),
     gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)
   );
-  const targetWidth = 4594;
-  const targetHeight = 4961;
+  const targetHeight = Math.min(maxSize, 6144);
+  const targetWidth = Math.round(targetHeight * (800 / 864));
   const scale = Math.min(1, maxSize / Math.max(targetWidth, targetHeight));
   const width = Math.floor(targetWidth * scale);
   const height = Math.floor(targetHeight * scale);
@@ -265,13 +265,10 @@ async function prepareDeclarationPrintImage(imageSrc) {
   const croppedPixels = croppedContext.getImageData(0, 0, cropped.width, cropped.height);
   for (let offset = 0; offset < croppedPixels.data.length; offset += 4) {
     const alpha = croppedPixels.data[offset + 3];
-    if (alpha > 20) {
+    if (alpha > 0) {
       croppedPixels.data[offset] = 0;
       croppedPixels.data[offset + 1] = 0;
       croppedPixels.data[offset + 2] = 0;
-      croppedPixels.data[offset + 3] = 255;
-    } else {
-      croppedPixels.data[offset + 3] = 0;
     }
   }
   croppedContext.putImageData(croppedPixels, 0, 0);
