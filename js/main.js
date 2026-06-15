@@ -135,8 +135,77 @@ async function getPrintableThumbSource(container) {
   }
 }
 
+async function renderHighResolutionPrintSource(desk) {
+  const meta = CMS.getDeskMeta(desk);
+  const cameraValues = [
+    meta.thumb_cam_pos_x,
+    meta.thumb_cam_pos_y,
+    meta.thumb_cam_pos_z,
+    meta.thumb_cam_target_x,
+    meta.thumb_cam_target_y,
+    meta.thumb_cam_target_z,
+  ].map(Number);
+  if (cameraValues.some(value => !Number.isFinite(value))) {
+    throw new Error('표지 카메라 정보가 없습니다.');
+  }
+
+  const renderer = new THREE.WebGLRenderer({
+    alpha: true,
+    antialias: true,
+    preserveDrawingBuffer: true,
+  });
+  const gl = renderer.getContext();
+  const maxSize = Math.min(
+    gl.getParameter(gl.MAX_TEXTURE_SIZE),
+    gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)
+  );
+  const targetWidth = 4594;
+  const targetHeight = 4961;
+  const scale = Math.min(1, maxSize / Math.max(targetWidth, targetHeight));
+  const width = Math.floor(targetWidth * scale);
+  const height = Math.floor(targetHeight * scale);
+  renderer.setPixelRatio(1);
+  renderer.setSize(width, height, false);
+  renderer.setClearColor(0xffffff, 0);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, width / height, 0.01, 100);
+  camera.position.set(cameraValues[0], cameraValues[1], cameraValues[2]);
+  camera.lookAt(new THREE.Vector3(cameraValues[3], cameraValues[4], cameraValues[5]));
+
+  const silhouette = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    side: THREE.DoubleSide,
+  });
+  const glbUrl = await fetchDriveBlobUrl(desk.drive_file_id);
+  try {
+    await new Promise((resolve, reject) => {
+      new THREE.GLTFLoader().load(glbUrl, gltf => {
+        gltf.scene.traverse(child => {
+          if (child.isMesh) child.material = silhouette;
+        });
+        scene.add(gltf.scene);
+        renderer.render(scene, camera);
+        resolve();
+      }, undefined, reject);
+    });
+    return await new Promise((resolve, reject) => {
+      renderer.domElement.toBlob(blob => {
+        blob ? resolve(URL.createObjectURL(blob)) : reject(new Error('고해상도 표지 생성 실패'));
+      }, 'image/png');
+    });
+  } finally {
+    URL.revokeObjectURL(glbUrl);
+    silhouette.dispose();
+    renderer.dispose();
+  }
+}
+
 async function prepareDeclarationPrintImage(imageSrc) {
-  if (declarationPrintCropCache.has(imageSrc)) return declarationPrintCropCache.get(imageSrc);
+  const shouldCache = !imageSrc.startsWith('blob:');
+  if (shouldCache && declarationPrintCropCache.has(imageSrc)) {
+    return declarationPrintCropCache.get(imageSrc);
+  }
 
   const image = new Image();
   image.crossOrigin = 'anonymous';
@@ -207,20 +276,26 @@ async function prepareDeclarationPrintImage(imageSrc) {
   }
   croppedContext.putImageData(croppedPixels, 0, 0);
   const result = cropped.toDataURL('image/png');
-  declarationPrintCropCache.set(imageSrc, result);
+  if (shouldCache) declarationPrintCropCache.set(imageSrc, result);
   return result;
 }
 
-async function openPrintOptions(imageSrc) {
+async function openPrintOptions(desk, fallbackImageSrc) {
   const bar = document.getElementById('print-select-bar');
-  bar.querySelector('span').textContent = '실루엣을 분석하는 중';
+  bar.querySelector('span').textContent = '고해상도 실루엣을 생성하는 중';
+  let imageSrc = fallbackImageSrc;
   try {
+    imageSrc = await renderHighResolutionPrintSource(desk);
     declarationPrintImageSrc = await prepareDeclarationPrintImage(imageSrc);
   } catch (err) {
-    console.warn('silhouette crop failed', err);
-    declarationPrintImageSrc = imageSrc;
+    console.warn('high-resolution silhouette failed', err);
+    bar.querySelector('span').textContent = '기존 표지로 인쇄를 준비하는 중';
+    declarationPrintImageSrc = await prepareDeclarationPrintImage(fallbackImageSrc);
   } finally {
     if (imageSrc.startsWith('blob:')) URL.revokeObjectURL(imageSrc);
+    if (fallbackImageSrc !== imageSrc && fallbackImageSrc.startsWith('blob:')) {
+      URL.revokeObjectURL(fallbackImageSrc);
+    }
   }
   endDeclarationPrintSelection();
   const modal = document.getElementById('print-option-modal');
@@ -722,10 +797,12 @@ function createThumbs(desks) {
         event.preventDefault();
         event.stopPropagation();
         document.querySelector('#print-select-bar span').textContent = '표지를 불러오는 중';
-        const source = await getPrintableThumbSource(el);
-        if (source) {
-          await openPrintOptions(source);
-        } else {
+        try {
+          const source = await getPrintableThumbSource(el);
+          if (!source) throw new Error('인쇄 가능한 표지가 없습니다.');
+          await openPrintOptions(desk, source);
+        } catch (err) {
+          console.warn('print preparation failed', err);
           document.querySelector('#print-select-bar span').textContent = '이 표지는 아직 인쇄할 수 없습니다.';
         }
         return;
