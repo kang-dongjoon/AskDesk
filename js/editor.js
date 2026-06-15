@@ -3,8 +3,12 @@ let accessToken  = null;
 let driveFileId  = null;
 let savedPos     = null;
 let savedTarget  = null;
+let thumbnailFileId = null;
+let thumbnailPos = null;
+let thumbnailTarget = null;
 let pendingPoint = null;   // {position, marker}
 const points     = [];     // [{position, meta, marker}]
+const deletedPoints = [];
 const params     = new URLSearchParams(location.search);
 const isEditMode = params.has('edit');
 const editStartMode = params.get('mode');
@@ -14,9 +18,17 @@ let editDeskId   = params.get('edit');
 let editDesk     = null;
 let editObjects  = [];
 let currentStep  = 'upload';
+const originalModelMaterials = new Map();
+const thumbnailCaptureAspect = 800 / 864;
+const modelCenter = new THREE.Vector3();
+const modelBox = new THREE.Box3();
+const thumbnailSilhouetteMaterial = new THREE.MeshBasicMaterial({
+  color: 0x000000,
+  side: THREE.DoubleSide,
+});
 
 // ── Three.js setup ──
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
@@ -25,7 +37,9 @@ Object.assign(renderer.domElement.style, { position:'fixed', top:'0', left:'0', 
 document.body.prepend(renderer.domElement);
 
 const scene  = new THREE.Scene();
-scene.background = new THREE.Color(0x111111);
+const editorBackground = new THREE.Color(0x111111);
+const thumbnailBackground = new THREE.Color(0xffffff);
+scene.background = editorBackground;
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.01, 100);
 camera.position.set(0, 1, 2);
@@ -98,7 +112,7 @@ function applyLook() {
 
 document.addEventListener('keydown', e => {
   if (isTextInputActive()) return;
-  if (!lookMode && !orbit.enabled) return;
+  if (!lookMode && (!orbit.enabled || currentStep === 'thumbnail')) return;
   if (e.code === 'KeyQ' || e.key.toLowerCase() === 'q') {
     e.preventDefault();
     lookVerticalKeys.down = true;
@@ -148,9 +162,13 @@ window.addEventListener('resize', () => {
 
 // ── Step helpers ──
 function setStep(name) {
+  // UX-09~14: 등록 단계별 표시 문구와 버튼명
   currentStep = name;
+  set상Preview(name === 'thumbnail');
+  orbit.enableZoom = name !== 'thumbnail';
+  orbit.enablePan = name !== 'thumbnail';
   document.getElementById('step-upload').style.display = 'none';
-  ['step-viewpoint','step-points','step-submit'].forEach(id => {
+  ['step-viewpoint','step-points','step-thumbnail','step-submit'].forEach(id => {
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById('crosshair').style.display = 'none';
@@ -162,12 +180,14 @@ function setStep(name) {
     document.getElementById('step-indicator').textContent = '';
   } else if (name === 'viewpoint') {
     document.getElementById('step-viewpoint').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = '1 View';
+    document.getElementById('step-indicator').textContent = '1. 시점';
+    document.getElementById('btn-save-viewpoint').textContent = '저장';
     orbitVertOffset = 0;
     orbit.enabled = true;
   } else if (name === 'points') {
     document.getElementById('step-points').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = '2 Note';
+    document.getElementById('step-indicator').textContent = '2. 기록';
+    document.getElementById('btn-done-points').textContent = editStartMode === 'points' ? '저장' : '완료';
     document.getElementById('crosshair').style.display = 'block';
     orbit.enabled = false;
     lookMode = true;
@@ -177,19 +197,87 @@ function setStep(name) {
     lookPitch = Math.asin(Math.max(-1, Math.min(1, d.y)));
     lookBaseY = camera.position.y;
     lookVertOffset = 0;
+  } else if (name === 'thumbnail') {
+    document.getElementById('step-thumbnail').style.display = 'flex';
+    document.getElementById('step-indicator').textContent = '3. 표지';
+    document.querySelector('#step-thumbnail p').textContent = '책상의 표지를 정하세요.';
+    orbit.enabled = true;
+    orbitVertOffset = 0;
+    fitThumbnailCamera(
+      thumbnailPos && thumbnailTarget
+        ? thumbnailPos.clone().sub(thumbnailTarget)
+        : camera.position.clone().sub(orbit.target)
+    );
+    const keepButton = document.getElementById('btn-keep-thumbnail');
+    keepButton.style.display = thumbnailFileId ? '' : 'none';
   } else if (name === 'submit') {
     document.getElementById('step-submit').style.display = 'flex';
-    document.getElementById('step-indicator').textContent = 'Save';
+    document.getElementById('step-indicator').textContent = '저장';
     orbit.enabled = false;
     lookMode = false;
     buildSubmitPreview();
   }
 }
 
+function fitThumbnailCamera(direction) {
+  if (modelBox.isEmpty()) return;
+
+  if (!direction || direction.lengthSq() < 0.000001) {
+    camera.getWorldDirection(direction = new THREE.Vector3());
+    direction.multiplyScalar(-1);
+  }
+  direction.normalize();
+
+  const verticalHalfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
+  const tanVertical = Math.tan(verticalHalfFov);
+  const tanHorizontal = tanVertical * thumbnailCaptureAspect;
+  const forward = direction.clone().multiplyScalar(-1);
+  const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+  const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+  let distance = 0;
+
+  for (const x of [modelBox.min.x, modelBox.max.x]) {
+    for (const y of [modelBox.min.y, modelBox.max.y]) {
+      for (const z of [modelBox.min.z, modelBox.max.z]) {
+        const offset = new THREE.Vector3(x, y, z).sub(modelCenter);
+        distance = Math.max(
+          distance,
+          Math.abs(offset.dot(right)) / tanHorizontal + offset.dot(direction),
+          Math.abs(offset.dot(up)) / tanVertical + offset.dot(direction)
+        );
+      }
+    }
+  }
+  distance *= 1.025;
+
+  orbit.target.copy(modelCenter);
+  camera.position.copy(modelCenter).addScaledVector(direction, distance);
+  camera.updateProjectionMatrix();
+  orbit.update();
+}
+
+function set상Preview(enabled) {
+  scene.background = enabled ? thumbnailBackground : editorBackground;
+  originalModelMaterials.forEach((material, mesh) => {
+    mesh.material = enabled ? thumbnailSilhouetteMaterial : material;
+  });
+  points.forEach(point => {
+    point.marker.visible = !enabled;
+  });
+}
+
 document.getElementById('btn-back').addEventListener('click', e => {
   e.preventDefault();
   if (currentStep === 'submit') {
-    setStep('points');
+    setStep('thumbnail');
+    return;
+  }
+  if (currentStep === 'thumbnail') {
+    if (editStartMode === 'thumbnail') {
+      location.href = `viewer.html?desk=${encodeURIComponent(editDeskId)}`;
+      return;
+    }
+    setStep(editStartMode === 'view' ? 'viewpoint' : 'points');
     return;
   }
   if (currentStep === 'points') {
@@ -237,19 +325,20 @@ function showLoggedIn() {
 }
 
 function showEditPinStep() {
+  // UX-09: 기존 책상 책상 식별 번호 불러오기 화면과 상태 문구
   setStep('upload');
-  document.querySelector('#step-upload h2').textContent = 'Edit — Desk';
-  document.querySelector('#step-upload .sub').innerHTML = '편집을 위한 비밀번호 4자리를 입력해주세요.<br>비밀번호가 일치하는 최신 책상을 불러옵니다.';
+  document.querySelector('#step-upload h2').textContent = '책상 수정';
+  document.querySelector('#step-upload .sub').textContent = '책상 식별 번호 4자리를 입력해주세요.';
   document.getElementById('upload-area').innerHTML = `
     <input id="edit-pin-input" class="pin-entry" type="password" maxlength="4" inputmode="numeric" placeholder="0000">
     <button class="btn" id="btn-load-edit">불러오기</button>
-    <div id="upload-progress">불러오는 중...</div>
+    <div id="upload-progress">불러오는 중</div>
   `;
 
   document.getElementById('btn-load-edit').addEventListener('click', async () => {
     const pin = document.getElementById('edit-pin-input').value.trim();
     if (pin.length !== 4) {
-      alert('편집을 위한 비밀번호 4자리를 입력해주세요.');
+      alert('책상 식별 번호 4자리를 입력해주세요.');
       return;
     }
     await loadEditByPin(pin);
@@ -259,7 +348,7 @@ function showEditPinStep() {
 async function loadEditByPin(pin) {
   const progress = document.getElementById('upload-progress');
   progress.style.display = 'block';
-  progress.textContent = '책상 찾는 중...';
+  progress.textContent = '책상 찾는 중';
 
   try {
     const desks = await CMS.fetchDesks();
@@ -268,7 +357,7 @@ async function loadEditByPin(pin) {
     });
 
     if (!desk) {
-      progress.textContent = '비밀번호가 일치하는 책상을 찾을 수 없습니다.';
+      progress.textContent = '책상 식별 번호가 일치하는 책상을 찾을 수 없습니다.';
       return;
     }
 
@@ -300,11 +389,11 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
   if (!file) return;
 
   document.getElementById('upload-progress').style.display = 'block';
-  document.getElementById('upload-progress').textContent = '업로드 중...';
+  document.getElementById('upload-progress').textContent = '등록 중';
 
   try {
     driveFileId = await uploadToDrive(file);
-    document.getElementById('upload-progress').textContent = '업로드 완료. GLB/GLTF 로드 중...';
+    document.getElementById('upload-progress').textContent = '등록 완료';
     await loadGLB(driveFileId);
     setStep('viewpoint');
   } catch (err) {
@@ -362,12 +451,16 @@ function loadGLB(fileId, options = {}) {
         const center = box.getCenter(new THREE.Vector3());
         const size   = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
+        const sphere = box.getBoundingSphere(new THREE.Sphere());
+        modelBox.copy(box);
+        modelCenter.copy(sphere.center);
 
         // DoubleSide → 뒷면도 raycasting 가능
         model.traverse(c => {
           if (!c.isMesh) return;
           const fix = m => Object.assign(m.clone(), { side: THREE.DoubleSide });
           c.material = Array.isArray(c.material) ? c.material.map(fix) : fix(c.material);
+          originalModelMaterials.set(c, c.material);
         });
 
         if (options.cameraPos && options.cameraTarget) {
@@ -386,9 +479,18 @@ function loadGLB(fileId, options = {}) {
 }
 
 // ── Step 2: Save viewpoint ──
-document.getElementById('btn-save-viewpoint').addEventListener('click', () => {
+document.getElementById('btn-save-viewpoint').addEventListener('click', async () => {
   savedPos    = camera.position.clone();
   savedTarget = orbit.target.clone();
+  if (editStartMode === 'view') {
+    const button = document.getElementById('btn-save-viewpoint');
+    await saveDesk({
+      button,
+      status: document.querySelector('#step-viewpoint p'),
+      redirectUrl: `viewer.html?desk=${encodeURIComponent(editDeskId)}`,
+    });
+    return;
+  }
   setStep('points');
 });
 
@@ -436,11 +538,13 @@ function seedExistingPoint(obj) {
   scene.add(marker);
 
   points.push({
+    objectId: obj.object_id,
     position: marker.position.clone(),
     marker,
     name: obj.name || '',
     date: obj.collected_date || '',
     memo: obj.memory_note || '',
+    dirty: false,
   });
 }
 
@@ -518,6 +622,7 @@ document.getElementById('btn-meta-cancel').addEventListener('click', () => {
 
 document.getElementById('btn-meta-delete').addEventListener('click', () => {
   if (!editingPoint) return;
+  if (editingPoint.objectId) deletedPoints.push(editingPoint.objectId);
   scene.remove(editingPoint.marker);
   const idx = points.indexOf(editingPoint);
   if (idx >= 0) points.splice(idx, 1);
@@ -535,6 +640,7 @@ document.getElementById('btn-meta-save').addEventListener('click', () => {
     editingPoint.name = name;
     editingPoint.date = date;
     editingPoint.memo = memo;
+    editingPoint.dirty = true;
     editingPoint = null;
     document.getElementById('btn-meta-delete').style.display = 'none';
     document.getElementById('meta-form').style.display = 'none';
@@ -545,7 +651,15 @@ document.getElementById('btn-meta-save').addEventListener('click', () => {
   // ? → ! 로 교체
   pendingPoint.marker.material.map = makeMarkerTexture('!');
   pendingPoint.marker.material.map.needsUpdate = true;
-  points.push({ position: pendingPoint.position, marker: pendingPoint.marker, name, date, memo });
+  points.push({
+    objectId: null,
+    position: pendingPoint.position,
+    marker: pendingPoint.marker,
+    name,
+    date,
+    memo,
+    dirty: true,
+  });
   pendingPoint = null;
   document.getElementById('btn-meta-delete').style.display = 'none';
   document.getElementById('meta-form').style.display = 'none';
@@ -558,61 +672,181 @@ document.getElementById('f-date-unknown').addEventListener('change', e => {
 });
 
 // ── Step 3: Done ──
-document.getElementById('btn-done-points').addEventListener('click', () => setStep('submit'));
+document.getElementById('btn-done-points').addEventListener('click', async () => {
+  if (editStartMode === 'points') {
+    const button = document.getElementById('btn-done-points');
+    await saveDesk({
+      button,
+      status: document.querySelector('#step-points p'),
+      redirectUrl: `viewer.html?desk=${encodeURIComponent(editDeskId)}`,
+    });
+    return;
+  }
+  setStep('thumbnail');
+});
+
+document.getElementById('btn-save-thumbnail').addEventListener('click', async () => {
+  // UX-13: 표지 저장 상태 및 오류 문구
+  const status = document.querySelector('#step-thumbnail p');
+  const button = document.getElementById('btn-save-thumbnail');
+  if (!accessToken) {
+    status.textContent = '새 표지 저장에는 Google 로그인이 필요합니다.';
+    return;
+  }
+
+  button.disabled = true;
+  status.textContent = '표지 저장 중';
+  thumbnailPos = camera.position.clone();
+  thumbnailTarget = orbit.target.clone();
+
+  try {
+    const blob = await capture상Blob();
+    thumbnailFileId = await upload상Blob(blob);
+    status.textContent = '표지 저장 완료';
+    setStep('submit');
+  } catch (err) {
+    console.error(err);
+    status.textContent = '표지를 저장하지 못했습니다.';
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('btn-keep-thumbnail').addEventListener('click', () => setStep('submit'));
+
+function capture상Blob() {
+  const previousBackground = scene.background;
+  const previousSize = renderer.getSize(new THREE.Vector2());
+  const previousAspect = camera.aspect;
+  const markerVisibility = points.map(point => point.marker.visible);
+  points.forEach(point => { point.marker.visible = false; });
+  scene.background = null;
+  renderer.setSize(800, 864, false);
+  camera.aspect = 800 / 864;
+  camera.updateProjectionMatrix();
+  renderer.render(scene, camera);
+  return new Promise((resolve, reject) => {
+    renderer.domElement.toBlob(blob => {
+      scene.background = previousBackground;
+      points.forEach((point, index) => { point.marker.visible = markerVisibility[index]; });
+      renderer.setSize(previousSize.x, previousSize.y);
+      camera.aspect = previousAspect;
+      camera.updateProjectionMatrix();
+      renderer.render(scene, camera);
+      blob ? resolve(blob) : reject(new Error('상 capture failed'));
+    }, 'image/webp', 0.86);
+  });
+}
+
+async function upload상Blob(blob) {
+  const meta = JSON.stringify({
+    name: `askdesk-thumbnail-${Date.now()}.webp`,
+    parents: [CONFIG.DRIVE_FOLDER_ID],
+  });
+  const form = new FormData();
+  form.append('metadata', new Blob([meta], { type: 'application/json' }));
+  form.append('file', blob, 'thumbnail.webp');
+
+  const res = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+    { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, body: form }
+  );
+  if (!res.ok) throw new Error(`상 upload failed: ${res.status}`);
+  const data = await res.json();
+  const permission = await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'reader', type: 'anyone', allowFileDiscovery: false }),
+  });
+  if (!permission.ok) throw new Error(`상 permission failed: ${permission.status}`);
+  return data.id;
+}
 
 // ── Submit preview ──
 function buildSubmitPreview() {
+  // UX-14: 최종 저장 화면의 변경 요약 문구
   const el = document.getElementById('submit-status');
   const pinInput = document.getElementById('pin-input');
   if (editDeskId) {
     pinInput.style.display = 'none';
-    el.textContent = `책상 1개 · 노트 ${points.length}개 수정 준비됨`;
+    const changedCount = points.filter(point => point.dirty).length;
+    const parts = [];
+    if (changedCount) parts.push(`기록 ${changedCount}개 변경`);
+    if (deletedPoints.length) parts.push(`기록 ${deletedPoints.length}개 삭제`);
+    el.textContent = parts.length ? parts.join(' · ') : '기록 변경 없음';
     return;
   }
 
   pinInput.style.display = 'block';
-  el.innerHTML = `책상 1개 · 노트 ${points.length}개 준비됨<br>편집을 위한 비밀번호 4자리를 설정해주세요.`;
+  el.innerHTML = `책상 1개 · 기록 ${points.length}개 준비됨<br>책상 식별 번호 4자리를 설정해주세요.`;
 }
 
 // ── Submit to Apps Script ──
-document.getElementById('btn-submit').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-submit');
+document.getElementById('btn-submit').addEventListener('click', () => saveDesk());
+
+async function saveDesk(options = {}) {
+  // UX-10, UX-11, UX-14: 저장 중·완료·오류 상태 문구
+  const btn = options.button || document.getElementById('btn-submit');
+  const status = options.status || document.getElementById('submit-status');
+  const redirectUrl = options.redirectUrl || 'index.html';
+  const originalStatus = status.textContent;
   btn.disabled = true;
 
   const pin    = String(document.getElementById('pin-input').value || '0000').slice(0, 4).padStart(4, '0');
-  if (!editDeskId) {
-    try {
-      const desks = await CMS.fetchDesks();
+  let previousDeskRowIndex = 0;
+  try {
+    const desks = await CMS.fetchDesks();
+    previousDeskRowIndex = desks
+      .filter(item => item.desk_id === editDeskId)
+      .reduce((max, item) => Math.max(max, item.__rowIndex || 0), 0);
+    if (!editDeskId) {
       const isUsed = desks.some((item) => (item.desk_id || '').split('-').pop() === pin);
       if (isUsed) {
-        document.getElementById('submit-status').textContent = '이미 사용중인 번호입니다.';
+        status.textContent = '이미 사용중인 번호입니다.';
         btn.disabled = false;
         return;
       }
-    } catch (err) {
-      console.error(err);
-      document.getElementById('submit-status').textContent = '비밀번호 중복 여부를 확인하지 못했습니다. 다시 시도해주세요.';
-      btn.disabled = false;
-      return;
     }
+  } catch (err) {
+    console.error(err);
+    status.textContent = '저장 전 상태를 확인하지 못했습니다. 다시 시도해주세요.';
+    btn.disabled = false;
+    return;
   }
 
   const uuid   = crypto.randomUUID ? crypto.randomUUID().split('-')[0] : Date.now().toString(36);
   const deskId = editDeskId || `${uuid}-${pin}`;
   const submittedAt = new Date().toISOString();
   const objectVersion = submittedAt.replace(/[^0-9A-Za-z]/g, '');
-  const objectRows = points.length
-    ? points.map((p, i) => ({
+  const changedPoints = editDeskId ? points.filter(p => p.dirty) : points;
+  const objectRows = changedPoints.map((p, i) => ({
         desk_id:        deskId,
-        object_id:      `${deskId}_${objectVersion}_${i}`,
+        object_id:      p.objectId || (editDeskId
+          ? `${deskId}_note_n${crypto.randomUUID?.() || `${Date.now()}_${i}`}`
+          : `${deskId}_${objectVersion}_${i}`),
         name:           p.name,
         collected_date: p.date,
         memory_note:    p.memo,
         x:              p.position.x,
         y:              p.position.y,
         z:              p.position.z,
-      }))
-    : [{
+      }));
+
+  deletedPoints.forEach(objectId => {
+    objectRows.push({
+      desk_id:        deskId,
+      object_id:      objectId,
+      name:           '',
+      collected_date: '',
+      memory_note:    '',
+      x:              '',
+      y:              '',
+      z:              '',
+    });
+  });
+
+  if (!editDeskId && objectRows.length === 0) {
+    objectRows.push({
         desk_id:        deskId,
         object_id:      `${deskId}_${objectVersion}_0`,
         name:           '',
@@ -621,12 +855,22 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
         x:              '',
         y:              '',
         z:              '',
-      }];
+    });
+  }
 
   const payload = {
     desk: {
       desk_id:      deskId,
-      owner:        '',
+      owner:        CMS.encodeDeskMeta({
+        owner: window._userName || CMS.getDeskMeta(editDesk).owner || '',
+        thumbnail_file_id: thumbnailFileId || '',
+        thumb_cam_pos_x: thumbnailPos?.x ?? '',
+        thumb_cam_pos_y: thumbnailPos?.y ?? '',
+        thumb_cam_pos_z: thumbnailPos?.z ?? '',
+        thumb_cam_target_x: thumbnailTarget?.x ?? '',
+        thumb_cam_target_y: thumbnailTarget?.y ?? '',
+        thumb_cam_target_z: thumbnailTarget?.z ?? '',
+      }),
       drive_file_id: driveFileId || editDesk?.drive_file_id,
       cam_pos_x:    savedPos.x,
       cam_pos_y:    savedPos.y,
@@ -640,7 +884,7 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
   };
 
   try {
-    document.getElementById('submit-status').textContent = '시트에 기록 중...';
+    status.textContent = '저장 중';
     await fetch(CONFIG.APPS_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -648,33 +892,38 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
       body: JSON.stringify(payload),
     });
 
-    const saved = await waitForDeskSaved(deskId);
+    const saved = await waitForDeskSaved(deskId, previousDeskRowIndex);
     if (saved) {
-      document.getElementById('submit-status').textContent = '저장 완료!';
+      status.textContent = '저장 완료';
       window.setTimeout(() => {
-        location.href = 'index.html';
+        location.href = redirectUrl;
       }, 1000);
     } else {
-      document.getElementById('submit-status').textContent = '전송은 완료됐지만 시트 반영을 확인하지 못했습니다.';
+      status.textContent = '전송은 완료됐지만 시트 반영을 확인하지 못했습니다.';
       btn.disabled = false;
     }
   } catch (err) {
     console.error(err);
-    document.getElementById('submit-status').textContent = '오류가 발생했습니다. 다시 시도해주세요.';
+    status.textContent = '오류가 발생했습니다. 다시 시도해주세요.';
     btn.disabled = false;
   }
-});
+  if (!btn.disabled && options.status) {
+    window.setTimeout(() => {
+      if (status.textContent !== '저장 완료') status.textContent = originalStatus;
+    }, 3000);
+  }
+}
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function waitForDeskSaved(deskId) {
+async function waitForDeskSaved(deskId, previousDeskRowIndex) {
   for (let i = 0; i < 8; i += 1) {
     await wait(1200);
     try {
       const desks = await CMS.fetchDesks();
-      if (desks.some(d => d.desk_id === deskId)) return true;
+      if (desks.some(d => d.desk_id === deskId && (d.__rowIndex || 0) > previousDeskRowIndex)) return true;
     } catch (err) {
       console.warn('Save verification failed', err);
     }
@@ -718,19 +967,20 @@ async function initEditMode() {
 }
 
 async function loadEditDesk() {
+  // UX-09~13: 기존 책상 로드 상태 및 오류 문구
   try {
     const desks = await CMS.fetchDesks();
     editDesk = CMS.findLatestDesk(desks, d => d.desk_id === editDeskId);
     editObjects = await CMS.fetchObjects(editDeskId);
   } catch (err) {
     console.error(err);
-    alert('기존 desk 데이터를 불러오지 못했습니다.');
+    alert('기존 책상 정보를 불러오지 못했습니다.');
     setStep('upload');
     return;
   }
 
   if (!editDesk) {
-    alert('편집할 desk를 찾을 수 없습니다.');
+    alert('편집할 책상을 찾을 수 없습니다.');
     setStep('upload');
     return;
   }
@@ -746,16 +996,34 @@ async function loadEditDesk() {
     parseFloat(editDesk.cam_target_y) || 0,
     parseFloat(editDesk.cam_target_z) || 0
   );
-  window._userName = editDesk.owner || window._userName;
+  const deskMeta = CMS.getDeskMeta(editDesk);
+  window._userName = deskMeta.owner || window._userName;
+  thumbnailFileId = deskMeta.thumbnail_file_id || null;
+  if (deskMeta.thumb_cam_pos_x !== undefined && deskMeta.thumb_cam_pos_x !== '') {
+    thumbnailPos = new THREE.Vector3(
+      parseFloat(deskMeta.thumb_cam_pos_x) || 0,
+      parseFloat(deskMeta.thumb_cam_pos_y) || 0,
+      parseFloat(deskMeta.thumb_cam_pos_z) || 0
+    );
+    thumbnailTarget = new THREE.Vector3(
+      parseFloat(deskMeta.thumb_cam_target_x) || 0,
+      parseFloat(deskMeta.thumb_cam_target_y) || 0,
+      parseFloat(deskMeta.thumb_cam_target_z) || 0
+    );
+  }
 
   document.getElementById('step-upload').style.display = 'flex';
   document.getElementById('upload-progress').style.display = 'block';
-  document.getElementById('upload-progress').textContent = '기존 책상 로드 중...';
+  document.getElementById('upload-progress').textContent = '책상 찾는 중';
 
   try {
     await loadGLB(driveFileId, { cameraPos: savedPos, cameraTarget: savedTarget });
     editObjects.forEach(seedExistingPoint);
-    setStep(editStartMode === 'points' ? 'points' : 'viewpoint');
+    if (editStartMode === 'thumbnail') {
+      setStep('thumbnail');
+    } else {
+      setStep(editStartMode === 'points' ? 'points' : 'viewpoint');
+    }
   } catch (err) {
     console.error(err);
     document.getElementById('upload-progress').textContent = '오류: ' + err.message;

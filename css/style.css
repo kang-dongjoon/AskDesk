@@ -33,9 +33,9 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
 .nav-btn {
   display: inline-block;
   border: 1px solid #111;
-  padding: 11px 24px;
-  font-size: 13px;
-  font-weight: 300;
+  padding: 9px 18px;
+  font-size: 15px;
+  font-weight: 400;
   letter-spacing: .06em;
   text-transform: none;
   cursor: pointer;
@@ -62,43 +62,83 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
   top: 0; left: 0; right: 0;
   z-index: 100;
   display: flex;
-  justify-content: flex-end;
-  padding: 18px 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 28px;
+  pointer-events: none;
+}
+
+.landing-nav-label {
+  flex: 0 0 auto;
+  color: #111;
+  font-size: 21.6px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: 0;
+  background: transparent;
+  pointer-events: auto;
+  transition: font-weight 150ms ease;
+}
+
+.landing-nav-label:hover {
+  font-weight: 400;
+}
+
+.landing-nav-label sup {
+  position: relative;
+  top: -.72em;
+  margin-right: .18em;
+  font-size: .52em;
+  line-height: 0;
+  vertical-align: baseline;
 }
 
 /* ── PANEL (index) ── */
-#panel {
+.landing-panel {
   position: fixed;
-  top: 0; right: 0;
-  width: min(38vw, 560px);
-  min-width: 340px;
+  top: 0;
+  width: min(25vw, 373px);
+  min-width: 227px;
   height: 100%;
   background: #f9f9f9;
-  border-left: 1px solid #111;
-  transform: translateX(100%);
   transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 90;
   display: flex;
   flex-direction: column;
 }
-#panel.open { transform: translateX(0); }
 
-#panel-top {
+.landing-panel-left {
+  left: 0;
+  border-right: 1px solid #111;
+  transform: translateX(-100%);
+}
+
+.landing-panel-right {
+  right: 0;
+  border-left: 1px solid #111;
+  transform: translateX(100%);
+}
+
+.landing-panel.open { transform: translateX(0); }
+
+.panel-copy {
   flex: 1;
   padding: 88px 34px 24px;
   font-size: 15px;
   line-height: 1.95;
   color: #111;
 }
-#panel-top p + p { margin-top: 22px; }
+.panel-copy p + p { margin-top: 22px; }
 
 #panel-divider { border: none; border-top: 1px solid #e8e8e8; }
 
+.panel-actions,
 #panel-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
-  padding: 0 34px 28px;
+  margin-top: auto;
+  padding: 88px 34px 28px;
 }
 
 .panel-action {
@@ -108,7 +148,8 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
 
 /* ── LANDING MODALS ── */
 #upload-modal,
-#edit-modal {
+#edit-modal,
+#print-option-modal {
   position: fixed;
   inset: 0;
   z-index: 300;
@@ -120,12 +161,14 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
 }
 
 #upload-modal.open,
-#edit-modal.open {
+#edit-modal.open,
+#print-option-modal.open {
   display: flex;
 }
 
 #upload-dialog,
-#edit-dialog {
+#edit-dialog,
+#print-option-dialog {
   position: relative;
   width: min(420px, calc(100vw - 40px));
   min-height: 300px;
@@ -141,7 +184,8 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
 }
 
 #btn-close-upload,
-#btn-close-edit {
+#btn-close-edit,
+#btn-close-print-options {
   position: absolute;
   top: 12px;
   right: 14px;
@@ -151,7 +195,8 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
 }
 
 #upload-dialog h2,
-#edit-dialog h2 {
+#edit-dialog h2,
+#print-option-dialog h2 {
   font-size: 44px;
   font-weight: 300;
   line-height: 1;
@@ -167,6 +212,126 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
   margin-bottom: 30px;
 }
 
+#print-select-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 250;
+  display: none;
+  align-items: center;
+  gap: 18px;
+  transform: translateX(-50%);
+  border: 1px solid #111;
+  background: #fff;
+  padding: 10px 14px 10px 18px;
+  font-size: 13px;
+}
+
+#print-select-bar.open {
+  display: flex;
+}
+
+#print-select-bar button {
+  border-left: 1px solid #111;
+  padding-left: 14px;
+}
+
+body.print-selecting .thumb {
+  cursor: crosshair;
+}
+
+body.print-selecting .thumb:hover {
+  outline: 1px solid #111;
+  outline-offset: 8px;
+}
+
+.print-option-actions {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+#print-stage {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 0;
+  }
+
+  body > *:not(#print-stage) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    width: auto;
+    height: auto;
+    overflow: visible;
+    background: #fff;
+  }
+
+  #print-stage {
+    display: block;
+  }
+
+  .print-sheet {
+    position: relative;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+    background: #fff;
+  }
+
+  .print-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .print-single {
+    width: 420mm;
+    height: 297mm;
+  }
+
+  .print-split {
+    width: 297mm;
+    height: 420mm;
+  }
+
+  .print-artwork {
+    position: absolute;
+    inset: 0;
+  }
+
+  .print-single .print-artwork {
+    width: 420mm;
+    height: 297mm;
+  }
+
+  .print-split .print-artwork {
+    width: 594mm;
+    height: 420mm;
+  }
+
+  .print-split-right .print-artwork {
+    left: -297mm;
+  }
+
+  .print-artwork img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding-top: 25mm;
+    padding-bottom: 25mm;
+    object-fit: contain;
+    filter: brightness(0);
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
 #landing-upload-area,
 #landing-login-status,
 #landing-edit-area {
@@ -178,13 +343,17 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
 
 .upload-choice-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  width: min(360px, calc(100vw - 80px));
+  width: min(100%, 360px);
 }
 
 .upload-choice-row .nav-btn {
   width: 100%;
+  min-width: 0;
+  padding-inline: 10px;
+  font-size: 13px;
+  white-space: normal;
 }
 
 #landing-login-status,
@@ -202,6 +371,33 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
   color: #111;
 }
 
+#thumb-context-menu {
+  position: fixed;
+  z-index: 240;
+  display: none;
+  min-width: 132px;
+  background: #fff;
+  border: 1px solid #111;
+}
+
+#thumb-context-menu.open {
+  display: block;
+}
+
+#thumb-context-menu button {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  white-space: nowrap;
+}
+
+#thumb-context-menu button:hover {
+  color: #fff;
+  background: #111;
+}
+
 .pin-entry {
   width: 132px;
   border: 0;
@@ -216,8 +412,14 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
 }
 
 /* ── PAGE ── */
-#page { transition: margin-right 400ms cubic-bezier(0.16, 1, 0.3, 1); }
-#page.shifted { margin-right: min(38vw, 560px); }
+#page {
+  overflow-anchor: none;
+  transition:
+    margin-left 400ms cubic-bezier(0.16, 1, 0.3, 1),
+    margin-right 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+#page.shifted-left { margin-left: min(25vw, 373px); }
+#page.shifted-right { margin-right: min(25vw, 373px); }
 
 /* ── COLLECTION (single page) ── */
 #collection {
@@ -232,42 +434,58 @@ button { background: none; border: none; cursor: pointer; font: inherit; color: 
   margin-bottom: var(--thumb-title-gap, 240px);
 }
 
+#collection-status {
+  display: none;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  font-size: 13px;
+  letter-spacing: .06em;
+  text-align: center;
+}
+
+body.collection-loading #collection-status,
+body.collection-empty #collection-status,
+body.collection-error #collection-status {
+  display: flex;
+}
+
 body.is-empty-collection #thumbs {
   margin-bottom: 0;
 }
 
 .thumb {
   position: absolute;
+  z-index: 2;
   cursor: pointer;
   overflow: visible;
   transition: opacity 180ms ease, filter 180ms ease;
   filter: grayscale(1);
 }
 
-.thumb.failed::before {
-  content: "";
+.thumb.failed::before,
+.thumb.loading::before {
+  content: "누군가의 책상";
   position: absolute;
-  left: 18%;
-  top: 18%;
-  width: 64%;
-  height: 54%;
-  background: #050505;
-  clip-path: polygon(6% 18%, 72% 6%, 95% 26%, 88% 82%, 68% 94%, 42% 78%, 28% 100%, 16% 76%);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 400;
+  color: #111;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
-.thumb.failed::after {
-  content: "";
-  position: absolute;
-  left: 28%;
-  top: 66%;
-  width: 46%;
-  height: 25%;
-  border-left: 10px solid #050505;
-  border-right: 8px solid #050505;
-  transform: skewX(-8deg);
+.thumb.failed::after,
+.thumb.loading::after {
+  content: none;
 }
 
-.thumb:hover {
+.thumb:hover,
+.thumb.show-3d {
   filter: grayscale(0);
 }
 
@@ -276,6 +494,45 @@ body.is-empty-collection #thumbs {
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+.thumb-image,
+.thumb-3d {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 260ms ease;
+}
+
+.thumb-image {
+  filter: brightness(0);
+}
+
+.thumb-3d {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.thumb.show-3d .thumb-image {
+  opacity: 0;
+}
+
+.thumb.show-3d .thumb-3d {
+  opacity: 1;
+}
+
+.thumb.thumb-image-failed .thumb-image {
+  display: none;
+}
+
+.thumb.failed::before,
+.thumb.failed::after,
+.thumb.loading::before,
+.thumb.loading::after {
+  z-index: 2;
 }
 
 .thumb-label {
@@ -302,7 +559,7 @@ body.is-empty-collection #thumbs {
   font-weight: 300;
   letter-spacing: -0.05em;
   word-spacing: 0;
-  line-height: 1;
+  line-height: .84;
   white-space: normal;
   padding: 0;
   display: block;
@@ -310,19 +567,31 @@ body.is-empty-collection #thumbs {
   overflow-wrap: normal;
 }
 
-#page.shifted .hero {
+.hero sup {
+  position: relative;
+  top: -6.2em;
+  margin-left: .12em;
+  font-size: .1em;
+  font-weight: 300;
+  line-height: 0;
+  letter-spacing: 0;
+  vertical-align: baseline;
+}
+
+#page.shifted-left .hero,
+#page.shifted-right .hero {
   white-space: normal;
 }
 
 @media (max-width: 760px) {
   #nav { padding: 14px 16px; }
 
-  #panel {
+  .landing-panel {
     width: 100vw;
     min-width: 0;
   }
 
-  #panel-top {
+  .panel-copy {
     padding: 78px 22px 22px;
   }
 
@@ -331,7 +600,9 @@ body.is-empty-collection #thumbs {
     padding: 0 22px 24px;
   }
 
-  #page.shifted {
+  #page.shifted-left,
+  #page.shifted-right {
+    margin-left: 0;
     margin-right: 0;
   }
 

@@ -4,36 +4,39 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ask — Desk</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20260615-23">
 </head>
 <body class="app-view" style="background:#000; overflow:hidden;">
 
-  <div id="loading">loading…</div>
+  <!-- UX-06: 탐색 초기 로딩 및 오류 상태 -->
+  <div id="loading">불러오는 중</div>
 
+  <!-- UX-07: 책상 탐색과 기록 패널 -->
   <nav id="viewer-nav">
-    <a href="index.html" class="nav-btn nav-btn-dark">Home</a>
-    <button id="btn-ask" class="nav-btn nav-btn-dark">Ask</button>
+    <a href="index.html" class="nav-btn nav-btn-dark">책상들</a>
+    <button id="btn-ask" class="nav-btn nav-btn-dark">기록</button>
   </nav>
 
   <aside id="viewer-panel">
     <div id="panel-desk-info"></div>
     <div id="panel-objects"></div>
     <div id="panel-edit-row">
-      <p>Note를 수정하거나 View를 재설정해보세요.</p>
-      <button class="nav-btn" id="btn-edit" style="display:none;">Edit</button>
+      <p>기록을 수정하거나 시점을 재설정해보세요.</p>
+      <button class="nav-btn" id="btn-edit" style="display:none;">수정</button>
     </div>
   </aside>
 
+  <!-- UX-08: 기록 수정 또는 시점 재설정 선택 모달 -->
   <div id="viewer-edit-modal">
     <div id="viewer-edit-dialog">
       <button id="btn-viewer-edit-close" type="button">×</button>
-      <h2>Edit</h2>
-      <p>편집을 위한 비밀번호<br>4자리를 입력해주세요.</p>
+      <h2>책상 수정</h2>
+      <p>책상 식별 번호<br>4자리를 입력해주세요.</p>
       <input id="viewer-edit-pin" class="pin-entry" type="password" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="0000">
       <div id="viewer-edit-error"></div>
       <div class="viewer-edit-actions">
-        <button class="nav-btn" id="btn-edit-points" type="button">Note 수정</button>
-        <button class="nav-btn" id="btn-edit-full" type="button">View 수정</button>
+        <button class="nav-btn" id="btn-edit-points" type="button">기록 수정</button>
+        <button class="nav-btn" id="btn-edit-full" type="button">시점 재설정</button>
       </div>
     </div>
   </div>
@@ -41,8 +44,8 @@
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
   <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/config.js"></script>
-  <script src="js/cms.js"></script>
-  <script src="js/viewer.js"></script>
+  <script src="js/config.js?v=20260614-3"></script>
+  <script src="js/cms.js?v=20260614-3"></script>
+  <script src="js/viewer.js?v=20260615-9"></script>
 </body>
 </html>

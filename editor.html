@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ask — Desk</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20260615-20">
   <style>
     body { background: #111; overflow: hidden; color: #111; }
 
@@ -196,20 +196,58 @@
       bottom: 36px;
       left: 50%;
       transform: translateX(-50%);
-      flex-direction: column;
-      align-items: center;
-      gap: 14px;
+      align-items: stretch;
+      justify-content: center;
+      max-width: calc(100vw - 48px);
+      background: #fff;
+      border: 1px solid #111;
+      white-space: nowrap;
+      overflow: hidden;
       pointer-events: all;
     }
     .bottom-bar p {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
       font-size: 13px;
       letter-spacing: .08em;
       color: #111;
-      background: #fff;
-      border: 1px solid #111;
-      padding: 10px 16px;
+      padding: 10px 18px;
       text-align: center;
-      line-height: 1.8;
+      line-height: 1.5;
+    }
+
+    .thumbnail-actions {
+      display: flex;
+      align-items: stretch;
+      pointer-events: all;
+    }
+
+    .bottom-bar .btn-ghost {
+      border: 0;
+      border-left: 1px solid #111;
+      padding: 10px 18px;
+      font-weight: 300;
+    }
+
+    .bottom-bar .btn-ghost:hover {
+      opacity: 1;
+      font-weight: 400;
+    }
+
+    #pin-input {
+      width: 82px;
+      border: 0;
+      border-left: 1px solid #111;
+      background: #fff;
+      color: #111;
+      font: inherit;
+      font-size: 15px;
+      padding: 8px 10px;
+      letter-spacing: .2em;
+      text-align: center;
+      outline: none;
     }
 
     /* ── Crosshair ── */
@@ -312,22 +350,34 @@
 
     .form-actions {
       display: flex;
-      gap: 8px;
       margin-top: 22px;
+      border: 1px solid #111;
     }
-    .form-actions .btn { flex: 1; text-align: center; }
+    .form-actions .btn {
+      flex: 1;
+      border: 0;
+      border-left: 1px solid #111;
+      font-weight: 300;
+      text-align: center;
+    }
+    .form-actions .btn:first-child { border-left: 0; }
+    .form-actions .btn:hover {
+      opacity: 1;
+      font-weight: 400;
+    }
   </style>
 </head>
 <body class="app-view">
 
 <div id="ui">
+  <!-- UX-09~14: 모든 등록 단계에서 유지되는 공통 내비게이션 -->
   <nav id="editor-nav">
-    <button class="nav-btn-editor" id="btn-back" type="button">Back</button>
+    <button class="nav-btn-editor" id="btn-back" type="button">뒤로</button>
     <span></span>
     <span id="step-indicator"></span>
   </nav>
 
-  <!-- Step 1: Upload -->
+  <!-- UX-09: 새 책상 업로드 또는 기존 책상 책상 식별 번호 불러오기 -->
   <div id="step-upload">
     <h2>Ask — Desk</h2>
     <p class="sub">당신의 책상을 업로드하세요.<br>3D 스캔 파일 (GLB/GLTF) 이 필요합니다.</p>
@@ -345,19 +395,28 @@
     </div>
   </div>
 
-  <!-- Step 2: Viewpoint -->
+  <!-- UX-10: 새 시점 설정 또는 기존 시점 재설정 -->
   <div class="bottom-bar" id="step-viewpoint">
-    <p>드래그로 View를 잡고 저장하세요.</p>
-    <button class="btn-ghost" id="btn-save-viewpoint">View 저장</button>
+    <p>드래그로 시점을 정하세요.</p>
+    <button class="btn-ghost" id="btn-save-viewpoint">저장</button>
   </div>
 
-  <!-- Step 3: Points -->
+  <!-- UX-11: 새 기록 설정 또는 기존 기록 수정 -->
   <div class="bottom-bar" id="step-points">
-    <p>사물을 클릭해 노트를 작성하세요.</p>
+    <p>사물을 클릭해 기록을 작성하세요.</p>
     <button class="btn-ghost" id="btn-done-points">완료</button>
   </div>
 
-  <!-- Metadata form -->
+  <!-- UX-13: 새 표지 설정 또는 기존 표지 수정 -->
+  <div class="bottom-bar" id="step-thumbnail">
+    <p>책상의 표지를 정하세요.</p>
+    <div class="thumbnail-actions">
+      <button class="btn-ghost" id="btn-save-thumbnail">저장</button>
+      <button class="btn-ghost" id="btn-keep-thumbnail">기존 표지 유지</button>
+    </div>
+  </div>
+
+  <!-- UX-12: 기록 메타데이터 입력 폼 -->
   <div id="meta-form">
     <h3>사물 정보</h3>
     <div class="field">
@@ -382,13 +441,10 @@
     </div>
   </div>
 
-  <!-- Step submit -->
+  <!-- UX-14: 새 책상 및 표지 수정의 최종 저장 -->
   <div class="bottom-bar" id="step-submit">
-    <p id="submit-status">편집을 위한 비밀번호 4자리를 설정해주세요.</p>
-    <input id="pin-input" type="password" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="0000"
-      style="width:80px;text-align:center;border:1px solid #111;
-             background:#fff;color:#111;font:inherit;font-size:18px;
-             padding:6px;letter-spacing:.2em;outline:none;">
+    <p id="submit-status">책상 식별 번호 4자리를 설정해주세요.</p>
+    <input id="pin-input" type="password" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="0000">
     <button class="btn-ghost" id="btn-submit">저장</button>
   </div>
 
@@ -399,8 +455,8 @@
 <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="js/config.js"></script>
-<script src="js/cms.js"></script>
-<script src="js/editor.js"></script>
+<script src="js/config.js?v=20260614-3"></script>
+<script src="js/cms.js?v=20260614-3"></script>
+  <script src="js/editor.js?v=20260615-14"></script>
 </body>
 </html>

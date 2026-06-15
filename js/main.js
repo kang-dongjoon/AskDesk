@@ -38,22 +38,233 @@ window.addEventListener('resize', () => {
 });
 
 // ── Panel ──
-const panel   = document.getElementById('panel');
-const page    = document.getElementById('page');
-const btnDesk = document.getElementById('nav-desk');
+const performPanel = document.getElementById('panel-perform');
+const declarePanel = document.getElementById('panel-declare');
+const page = document.getElementById('page');
+const btnPerform = document.getElementById('nav-perform');
+const btnDeclare = document.getElementById('nav-declare');
 let landingAccessToken = null;
+let declarationPrintSelecting = false;
+let declarationPrintImageSrc = '';
+const declarationPrintCropCache = new Map();
 
-btnDesk.addEventListener('click', () => {
-  const open = panel.classList.toggle('open');
-  page.classList.toggle('shifted', open);
+function toggleLandingPanel(panelName) {
+  const target = panelName === 'perform' ? performPanel : declarePanel;
+  const other = panelName === 'perform' ? declarePanel : performPanel;
+  const open = !target.classList.contains('open');
+  target.classList.toggle('open', open);
+  other.classList.remove('open');
+  btnPerform.classList.toggle('active', open && panelName === 'perform');
+  btnDeclare.classList.toggle('active', open && panelName === 'declare');
+  page.classList.toggle('shifted-left', open && panelName === 'perform');
+  page.classList.toggle('shifted-right', open && panelName === 'declare');
   setHeroSize();
   window.setTimeout(() => {
     setLandingTail();
     layoutThumbs();
+    scrollToLandingStart();
   }, 20);
-});
+  window.setTimeout(() => {
+    setHeroSize();
+    setLandingTail();
+    layoutThumbs();
+    window.requestAnimationFrame(scrollToLandingStart);
+  }, 420);
+}
+
+function closeLandingPanels() {
+  performPanel.classList.remove('open');
+  declarePanel.classList.remove('open');
+  btnPerform.classList.remove('active');
+  btnDeclare.classList.remove('active');
+  page.classList.remove('shifted-left', 'shifted-right');
+  setHeroSize();
+  setLandingTail();
+  layoutThumbs();
+  window.requestAnimationFrame(scrollToLandingStart);
+}
+
+btnPerform.addEventListener('click', () => toggleLandingPanel('perform'));
+btnDeclare.addEventListener('click', () => toggleLandingPanel('declare'));
+document.getElementById('btn-print-declaration')?.addEventListener('click', beginDeclarationPrintSelection);
 
 window.addEventListener('resize', layoutThumbs);
+
+function beginDeclarationPrintSelection() {
+  if (declarePanel.classList.contains('open')) toggleLandingPanel('declare');
+  declarationPrintSelecting = true;
+  document.body.classList.add('print-selecting');
+  const bar = document.getElementById('print-select-bar');
+  bar.classList.add('open');
+  bar.setAttribute('aria-hidden', 'false');
+}
+
+function endDeclarationPrintSelection() {
+  declarationPrintSelecting = false;
+  document.body.classList.remove('print-selecting');
+  const bar = document.getElementById('print-select-bar');
+  bar.querySelector('span').textContent = '인쇄할 표지를 선택하세요.';
+  bar.classList.remove('open');
+  bar.setAttribute('aria-hidden', 'true');
+}
+
+async function getPrintableThumbSource(container) {
+  if (container.dataset.thumbnailFileId) {
+    try {
+      return await fetchDriveBlobUrl(container.dataset.thumbnailFileId, { validateGlb: false });
+    } catch (err) {
+      console.warn('print thumbnail fetch failed', err);
+    }
+  }
+  const image = container.querySelector('.thumb-image');
+  if (image?.src) return image.src;
+  const canvas = container.querySelector('canvas');
+  if (!canvas) return '';
+  try {
+    return canvas.toDataURL('image/png');
+  } catch (err) {
+    console.warn('thumbnail capture failed', err);
+    return '';
+  }
+}
+
+async function prepareDeclarationPrintImage(imageSrc) {
+  if (declarationPrintCropCache.has(imageSrc)) return declarationPrintCropCache.get(imageSrc);
+
+  const image = new Image();
+  image.crossOrigin = 'anonymous';
+  const loaded = new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = reject;
+  });
+  image.src = imageSrc;
+  await loaded;
+
+  const source = document.createElement('canvas');
+  source.width = image.naturalWidth;
+  source.height = image.naturalHeight;
+  const sourceContext = source.getContext('2d', { willReadFrequently: true });
+  sourceContext.drawImage(image, 0, 0);
+  const pixels = sourceContext.getImageData(0, 0, source.width, source.height).data;
+
+  let minX = source.width;
+  let minY = source.height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < source.height; y += 1) {
+    for (let x = 0; x < source.width; x += 1) {
+      const offset = (y * source.width + x) * 4;
+      const alpha = pixels[offset + 3];
+      if (alpha > 20) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+
+  if (maxX < minX || maxY < minY) throw new Error('실루엣을 찾을 수 없습니다.');
+  const padding = Math.max(2, Math.round(Math.max(source.width, source.height) * 0.005));
+  minX = Math.max(0, minX - padding);
+  minY = Math.max(0, minY - padding);
+  maxX = Math.min(source.width - 1, maxX + padding);
+  maxY = Math.min(source.height - 1, maxY + padding);
+
+  const cropped = document.createElement('canvas');
+  cropped.width = maxX - minX + 1;
+  cropped.height = maxY - minY + 1;
+  cropped.getContext('2d').drawImage(
+    source,
+    minX,
+    minY,
+    cropped.width,
+    cropped.height,
+    0,
+    0,
+    cropped.width,
+    cropped.height
+  );
+  const croppedContext = cropped.getContext('2d');
+  const croppedPixels = croppedContext.getImageData(0, 0, cropped.width, cropped.height);
+  for (let offset = 0; offset < croppedPixels.data.length; offset += 4) {
+    const alpha = croppedPixels.data[offset + 3];
+    if (alpha > 20) {
+      croppedPixels.data[offset] = 0;
+      croppedPixels.data[offset + 1] = 0;
+      croppedPixels.data[offset + 2] = 0;
+      croppedPixels.data[offset + 3] = 255;
+    } else {
+      croppedPixels.data[offset + 3] = 0;
+    }
+  }
+  croppedContext.putImageData(croppedPixels, 0, 0);
+  const result = cropped.toDataURL('image/png');
+  declarationPrintCropCache.set(imageSrc, result);
+  return result;
+}
+
+async function openPrintOptions(imageSrc) {
+  const bar = document.getElementById('print-select-bar');
+  bar.querySelector('span').textContent = '실루엣을 분석하는 중';
+  try {
+    declarationPrintImageSrc = await prepareDeclarationPrintImage(imageSrc);
+  } catch (err) {
+    console.warn('silhouette crop failed', err);
+    declarationPrintImageSrc = imageSrc;
+  } finally {
+    if (imageSrc.startsWith('blob:')) URL.revokeObjectURL(imageSrc);
+  }
+  endDeclarationPrintSelection();
+  const modal = document.getElementById('print-option-modal');
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closePrintOptions() {
+  const modal = document.getElementById('print-option-modal');
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+function printDeclaration(mode) {
+  if (!declarationPrintImageSrc) return;
+  const stage = document.getElementById('print-stage');
+  const styleId = 'print-page-size';
+  document.getElementById(styleId)?.remove();
+  const pageStyle = document.createElement('style');
+  pageStyle.id = styleId;
+  pageStyle.textContent = mode === 'a3'
+    ? '@media print { @page { size: A3 landscape; margin: 0; } }'
+    : '@media print { @page { size: A3 portrait; margin: 0; } }';
+  document.head.appendChild(pageStyle);
+
+  const artwork = () => `
+    <div class="print-artwork">
+      <img src="${declarationPrintImageSrc}" alt="">
+    </div>
+  `;
+  stage.innerHTML = mode === 'a3'
+    ? `<section class="print-sheet print-single">${artwork()}</section>`
+    : `
+      <section class="print-sheet print-split print-split-left">${artwork()}</section>
+      <section class="print-sheet print-split print-split-right">${artwork()}</section>
+    `;
+  closePrintOptions();
+  window.setTimeout(() => window.print(), 80);
+}
+
+document.getElementById('btn-cancel-print-select')?.addEventListener('click', endDeclarationPrintSelection);
+document.getElementById('btn-close-print-options')?.addEventListener('click', closePrintOptions);
+document.getElementById('print-option-modal')?.addEventListener('click', event => {
+  if (event.target.id === 'print-option-modal') closePrintOptions();
+});
+document.getElementById('btn-print-a3')?.addEventListener('click', () => printDeclaration('a3'));
+document.getElementById('btn-print-a2-split')?.addEventListener('click', () => printDeclaration('a2-split'));
+window.addEventListener('afterprint', () => {
+  document.getElementById('print-stage').innerHTML = '';
+  document.getElementById('print-page-size')?.remove();
+});
 
 // ── Landing upload popup ──
 const uploadModal = document.getElementById('upload-modal');
@@ -62,8 +273,12 @@ const btnCloseUpload = document.getElementById('btn-close-upload');
 const editModal = document.getElementById('edit-modal');
 const btnOpenEdit = document.getElementById('btn-open-edit');
 const btnCloseEdit = document.getElementById('btn-close-edit');
+const thumbContextMenu = document.getElementById('thumb-context-menu');
+let pendingLandingEditDeskId = null;
+let pendingLandingEditMode = null;
 
 btnOpenUpload?.addEventListener('click', () => {
+  closeLandingPanels();
   uploadModal.classList.add('open');
   uploadModal.setAttribute('aria-hidden', 'false');
 });
@@ -74,9 +289,7 @@ uploadModal?.addEventListener('click', (event) => {
 });
 
 btnOpenEdit?.addEventListener('click', () => {
-  editModal.classList.add('open');
-  editModal.setAttribute('aria-hidden', 'false');
-  document.getElementById('landing-edit-pin')?.focus();
+  openEditModal();
 });
 
 btnCloseEdit?.addEventListener('click', closeEditModal);
@@ -92,7 +305,50 @@ function closeUploadModal() {
 function closeEditModal() {
   editModal.classList.remove('open');
   editModal.setAttribute('aria-hidden', 'true');
+  pendingLandingEditDeskId = null;
+  pendingLandingEditMode = null;
 }
+
+function openEditModal({ deskId = null, mode = null } = {}) {
+  closeLandingPanels();
+  closeThumbContextMenu();
+  pendingLandingEditDeskId = deskId;
+  pendingLandingEditMode = mode;
+  document.getElementById('landing-edit-progress').textContent = '';
+  editModal.classList.add('open');
+  editModal.setAttribute('aria-hidden', 'false');
+  document.getElementById('landing-edit-pin')?.focus();
+}
+
+function openThumbContextMenu(event, deskId) {
+  event.preventDefault();
+  event.stopPropagation();
+  pendingLandingEditDeskId = deskId;
+  pendingLandingEditMode = 'thumbnail';
+  const menuWidth = 132;
+  const menuHeight = 40;
+  thumbContextMenu.style.left = `${Math.min(event.clientX, innerWidth - menuWidth - 8)}px`;
+  thumbContextMenu.style.top = `${Math.min(event.clientY, innerHeight - menuHeight - 8)}px`;
+  thumbContextMenu.classList.add('open');
+  thumbContextMenu.setAttribute('aria-hidden', 'false');
+}
+
+function closeThumbContextMenu() {
+  thumbContextMenu?.classList.remove('open');
+  thumbContextMenu?.setAttribute('aria-hidden', 'true');
+}
+
+document.getElementById('btn-edit-thumbnail')?.addEventListener('click', () => {
+  openEditModal({ deskId: pendingLandingEditDeskId, mode: 'thumbnail' });
+});
+document.addEventListener('click', closeThumbContextMenu);
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  closeThumbContextMenu();
+  endDeclarationPrintSelection();
+  closePrintOptions();
+});
+window.addEventListener('scroll', closeThumbContextMenu, { passive: true });
 
 document.getElementById('landing-google-login')?.addEventListener('click', () => {
   const client = google.accounts.oauth2.initTokenClient({
@@ -146,11 +402,11 @@ document.getElementById('landing-file-input')?.addEventListener('change', async 
 
   const progress = document.getElementById('landing-upload-progress');
   progress.style.display = 'block';
-  progress.textContent = '업로드 중...';
+  progress.textContent = '등록 중';
 
   try {
     const driveFileId = await uploadLandingGLB(file);
-    progress.textContent = '업로드 완료. 에디터로 이동 중...';
+    progress.textContent = '등록 완료';
     window.location.href = `editor.html?file=${encodeURIComponent(driveFileId)}`;
   } catch (err) {
     console.error(err);
@@ -193,45 +449,75 @@ function getDriveApiMediaUrl(fileId) {
   return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${CONFIG.API_KEY}`;
 }
 
-async function fetchDriveBlobUrl(fileId) {
+async function fetchDriveBlobUrl(fileId, { validateGlb = true } = {}) {
   const token = getStoredAccessToken();
-  try {
-    await assertDriveFileActive(fileId, token);
-  } catch (err) {
-    console.warn('Drive metadata check skipped', fileId, err);
+  if (token) {
+    try {
+      await assertDriveFileActive(fileId, token);
+    } catch (err) {
+      console.warn('Drive metadata check skipped', fileId, err);
+    }
   }
+  const publicAttempt = {
+    url: `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`,
+    options: {},
+    timeout: 12000,
+  };
   const attempts = [
+    ...(!token ? [publicAttempt] : []),
     {
       url: `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${token ? '' : `&key=${CONFIG.API_KEY}`}`,
       options: token ? { headers: { Authorization: `Bearer ${token}` } } : {},
+      timeout: 8000,
     },
     {
       url: `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${CONFIG.API_KEY}`,
       options: {},
+      timeout: 8000,
     },
-    {
-      url: `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`,
-      options: {},
-    },
+    ...(token ? [publicAttempt] : []),
     {
       url: `https://drive.google.com/uc?export=download&id=${fileId}`,
       options: {},
+      timeout: 8000,
     },
   ];
 
   let lastError = null;
   for (const attempt of attempts) {
     try {
-      const res = await fetchWithTimeout(attempt.url, attempt.options, 18000);
+      const res = await fetchWithTimeout(attempt.url, attempt.options, attempt.timeout || 18000);
       if (!res.ok) throw new Error(`Drive fetch ${res.status}`);
-      const blob = await res.blob();
-      await assertLikelyGLB(blob);
+      const blob = await resolveDriveDownload(res, attempt.options);
+      if (validateGlb) await assertLikelyGLB(blob);
       return URL.createObjectURL(blob);
     } catch (err) {
       lastError = err;
     }
   }
   throw lastError || new Error('Drive fetch failed');
+}
+
+async function resolveDriveDownload(response, options = {}) {
+  const blob = await response.blob();
+  const head = await blob.slice(0, 80).text();
+  if (!head.startsWith('<!') && !head.startsWith('<html') && !head.includes('<HTML')) {
+    return blob;
+  }
+
+  const html = await blob.text();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const form = doc.querySelector('#download-form, form[action*="download"]');
+  if (!form?.action) throw new Error('Drive returned HTML without a download confirmation form');
+
+  const confirmedUrl = new URL(form.action, response.url);
+  form.querySelectorAll('input[name]').forEach(input => {
+    confirmedUrl.searchParams.set(input.name, input.value);
+  });
+
+  const confirmed = await fetchWithTimeout(confirmedUrl.href, options, 60000);
+  if (!confirmed.ok) throw new Error(`Drive confirmed fetch ${confirmed.status}`);
+  return confirmed.blob();
 }
 
 function fetchWithTimeout(url, options = {}, timeout = 4500) {
@@ -266,26 +552,28 @@ document.getElementById('landing-edit-pin')?.addEventListener('keydown', (event)
 });
 
 async function verifyLandingEditPin() {
+  // UX-04: 랜딩 수정 및 표지 수정 책상 식별 번호 검증 상태 문구
   const input = document.getElementById('landing-edit-pin');
   const progress = document.getElementById('landing-edit-progress');
   const pin = (input.value || '').trim();
 
   if (!/^\d{4}$/.test(pin)) {
-    progress.textContent = '편집을 위한 비밀번호 4자리를 입력해주세요.';
+    progress.textContent = '책상 식별 번호 4자리를 입력해주세요.';
     return;
   }
 
-  progress.textContent = '확인 중...';
+  progress.textContent = '확인 중';
 
   try {
     const desks = currentDesks.length ? currentDesks : await CMS.fetchDesks();
     const hasAnyEditableDesk = desks.some((item) => item.desk_id);
     if (!hasAnyEditableDesk) {
-      progress.textContent = '아직 등록된 책상이 없습니다. 먼저 업로드해주세요.';
+      progress.textContent = '아직 등록된 책상이 없습니다. 먼저 등록해주세요.';
       return;
     }
     const desk = CMS.findLatestDesk(desks, (item) => {
-      return (item.desk_id || '').split('-').pop() === pin;
+      const matchesDesk = !pendingLandingEditDeskId || item.desk_id === pendingLandingEditDeskId;
+      return matchesDesk && (item.desk_id || '').split('-').pop() === pin;
     });
 
     if (!desk) {
@@ -293,7 +581,11 @@ async function verifyLandingEditPin() {
       return;
     }
 
-    progress.textContent = '에디터로 이동 중...';
+    progress.textContent = '';
+    if (pendingLandingEditDeskId && pendingLandingEditMode === 'thumbnail') {
+      window.location.href = `editor.html?edit=${encodeURIComponent(desk.desk_id)}&mode=thumbnail`;
+      return;
+    }
     window.location.href = `editor.html?edit=1&pin=${encodeURIComponent(pin)}`;
   } catch (err) {
     console.error(err);
@@ -307,7 +599,7 @@ function rand(seed) {
   return x - Math.floor(x);
 }
 
-// ── Thumbnails ──
+// ── 상 ──
 let currentDesks = [];
 let currentVisibleDesks = [];
 const thumbViews = [];
@@ -339,10 +631,19 @@ function runNextThumbLoad() {
 }
 
 async function init() {
+  setCollectionStatus('loading');
   let desks = [];
-  try { desks = await CMS.fetchDesks(); } catch (e) { console.warn('Sheets fetch failed', e); }
+  try {
+    desks = await CMS.fetchDesks();
+  } catch (e) {
+    console.warn('Sheets fetch failed', e);
+    setCollectionStatus('error');
+  }
   currentDesks = desks;
   createThumbs(desks);
+  if (!document.body.classList.contains('collection-error')) {
+    setCollectionStatus(currentVisibleDesks.length ? 'ready' : 'empty');
+  }
   setHeroSize();
   setLandingTail();
   layoutThumbs();
@@ -352,15 +653,35 @@ async function init() {
   });
 }
 
+function setCollectionStatus(state) {
+  // UX-01: 랜딩 컬렉션 로딩·빈 상태·오류 문구
+  const status = document.getElementById('collection-status');
+  document.body.classList.remove('collection-loading', 'collection-empty', 'collection-error');
+  if (state === 'loading') {
+    document.body.classList.add('collection-loading');
+    status.textContent = '책상 목록을 불러오는 중';
+  } else if (state === 'empty') {
+    document.body.classList.add('collection-empty');
+    status.textContent = '아직 등록된 책상이 없습니다.';
+  } else if (state === 'error') {
+    document.body.classList.add('collection-error');
+    status.textContent = '책상 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+  }
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
 function getStageWidth() {
-  if (!page.classList.contains('shifted') || window.innerWidth <= 760) {
+  if (
+    (!page.classList.contains('shifted-left') && !page.classList.contains('shifted-right'))
+    || window.innerWidth <= 760
+  ) {
     return window.innerWidth;
   }
-  return window.innerWidth - panel.getBoundingClientRect().width;
+  const openPanel = performPanel.classList.contains('open') ? performPanel : declarePanel;
+  return window.innerWidth - openPanel.getBoundingClientRect().width;
 }
 
 function createThumbs(desks) {
@@ -381,24 +702,42 @@ function createThumbs(desks) {
     const el = document.createElement('div');
     el.className = 'thumb';
     el.dataset.index = i;
+    el.dataset.driveFileId = desk.drive_file_id;
+    el.dataset.thumbnailFileId = CMS.getDeskMeta(desk).thumbnail_file_id || '';
 
     const label = document.createElement('div');
     label.className = 'thumb-label';
     label.textContent = desk.desk_id;
     el.appendChild(label);
 
-    el.addEventListener('click', () => {
+    el.addEventListener('click', async event => {
+      if (declarationPrintSelecting) {
+        event.preventDefault();
+        event.stopPropagation();
+        document.querySelector('#print-select-bar span').textContent = '표지를 불러오는 중';
+        const source = await getPrintableThumbSource(el);
+        if (source) {
+          await openPrintOptions(source);
+        } else {
+          document.querySelector('#print-select-bar span').textContent = '이 표지는 아직 인쇄할 수 없습니다.';
+        }
+        return;
+      }
       window.location.href = `viewer.html?desk=${encodeURIComponent(desk.desk_id)}`;
+    });
+
+    el.addEventListener('contextmenu', event => {
+      openThumbContextMenu(event, desk.desk_id);
     });
 
     el.addEventListener('mouseenter', async (event) => {
       hoveredThumbDeskId = desk.desk_id;
       moveThumbTooltip(event);
-      showThumbTooltip('노트 확인 중...');
+      showThumbTooltip('기록 확인 중');
       try {
         const count = await getNoteCount(desk.desk_id);
         if (hoveredThumbDeskId !== desk.desk_id) return;
-        showThumbTooltip(`${count}개의 Note`);
+        showThumbTooltip(`${count}개의 기록`);
       } catch (err) {
         console.warn('note count failed', desk.desk_id, err);
         hideThumbTooltip();
@@ -422,6 +761,7 @@ async function getNoteCount(deskId) {
 }
 
 function showThumbTooltip(text) {
+  // UX-01: 표지 hover 기록 개수 문구
   thumbTooltip.textContent = text;
   thumbTooltip.style.display = 'block';
 }
@@ -486,12 +826,13 @@ function scrollToLandingStart() {
 }
 
 function renderDeskThumb(container, desk, index) {
-  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(1, 1);
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  container.prepend(renderer.domElement);
+  const deskMeta = CMS.getDeskMeta(desk);
+  if (deskMeta.thumbnail_file_id) {
+    return renderSavedThumbnail(container, desk, deskMeta, index);
+  }
+  container.classList.add('loading');
 
+  let renderer = null;
   const scene = new THREE.Scene();
   const aspect = container.clientWidth / container.clientHeight;
   const viewHeight = 2.8;
@@ -522,6 +863,7 @@ function renderDeskThumb(container, desk, index) {
   let hovered = false;
   let baseScale = 1;
   let radius = 1;
+  let retryOnHoverBound = false;
 
   function updateCamera() {
     const width = Math.max(1, container.clientWidth);
@@ -532,9 +874,11 @@ function renderDeskThumb(container, desk, index) {
     camera.top = viewHeight / 2;
     camera.bottom = -viewHeight / 2;
     camera.updateProjectionMatrix();
-    renderer.setSize(width, height);
-    renderer.domElement.style.width = '100%';
-    renderer.domElement.style.height = '100%';
+    if (renderer) {
+      renderer.setSize(width, height);
+      renderer.domElement.style.width = '100%';
+      renderer.domElement.style.height = '100%';
+    }
     const fitWidth = viewHeight * aspect;
     const fitSize = Math.min(viewHeight, fitWidth) * 0.68;
     baseScale = fitSize / radius;
@@ -547,6 +891,12 @@ function renderDeskThumb(container, desk, index) {
     const token = getStoredAccessToken();
     let sourceUrl;
     try {
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      container.prepend(renderer.domElement);
+      updateCamera();
+
       sourceUrl = token
         ? await fetchDriveBlobUrl(desk.drive_file_id).then(url => {
             blobUrl = url;
@@ -560,30 +910,36 @@ function renderDeskThumb(container, desk, index) {
     }
 
     loader.load(sourceUrl, (gltf) => {
-    if (blobUrl) URL.revokeObjectURL(blobUrl);
-    const model = gltf.scene;
-    container.classList.remove('failed');
-    container.style.opacity = '';
-    pivot.add(model);
-    model.updateMatrixWorld(true);
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      const model = gltf.scene;
+      container.classList.remove('failed', 'loading');
+      container.style.opacity = '';
+      pivot.add(model);
+      model.updateMatrixWorld(true);
 
-    const box = new THREE.Box3().setFromObject(model);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    radius = Math.max(size.length() / 2, 0.001);
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      radius = Math.max(size.length() / 2, 0.001);
 
-    model.position.sub(center);
-    updateCamera();
-    pivot.scale.setScalar(baseScale);
+      model.position.sub(center);
+      updateCamera();
+      pivot.scale.setScalar(baseScale);
 
-    model.traverse((child) => {
-      if (!child.isMesh) return;
-      originalMaterials.set(child.uuid, child.material);
-      child.material = silhouetteMaterial;
-    });
+      model.traverse((child) => {
+        if (!child.isMesh) return;
+        originalMaterials.set(child.uuid, child.material);
+        child.material = silhouetteMaterial;
+      });
     }, undefined, (err) => {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
-      console.warn('thumb GLB failed', desk.desk_id, err);
+      console.warn('thumb GLB failed', desk.desk_id, {
+        fileId: desk.drive_file_id,
+        status: err?.target?.status,
+        statusText: err?.target?.statusText,
+        responseUrl: err?.target?.responseURL,
+        error: err,
+      });
       handleThumbFailure(container, err);
     });
   }
@@ -591,18 +947,23 @@ function renderDeskThumb(container, desk, index) {
   enqueueThumbLoad(loadThumbModel);
 
   function handleThumbFailure(el, err) {
-    console.warn('Dropping failed thumbnail', desk.desk_id, err);
-    dropThumbView(el);
-  }
-
-  function dropThumbView(el) {
-    const idx = thumbViews.findIndex(view => view?.container === el);
-    if (idx >= 0) thumbViews[idx] = null;
-    el.remove();
-    window.requestAnimationFrame(layoutThumbs);
+    console.warn('Showing failed thumbnail fallback', desk.desk_id, err);
+    renderer?.dispose();
+    renderer?.domElement.remove();
+    renderer = null;
+    el.classList.remove('loading');
+    el.classList.add('failed');
+    if (!retryOnHoverBound) {
+      retryOnHoverBound = true;
+      el.addEventListener('mouseenter', () => {
+        retryOnHoverBound = false;
+        enqueueThumbLoad(loadThumbModel);
+      }, { once: true });
+    }
   }
 
   container.addEventListener('mouseenter', () => {
+    if (declarationPrintSelecting) return;
     hovered = true;
     pivot.traverse((child) => {
       if (child.isMesh && originalMaterials.has(child.uuid)) {
@@ -613,6 +974,8 @@ function renderDeskThumb(container, desk, index) {
 
   container.addEventListener('mouseleave', () => {
     hovered = false;
+    pivot.rotation.set(0, 0, 0);
+    pivot.position.y = 0;
     pivot.traverse((child) => {
       if (child.isMesh) child.material = silhouetteMaterial;
     });
@@ -622,14 +985,13 @@ function renderDeskThumb(container, desk, index) {
     if (!document.body.contains(container)) return;
     requestAnimationFrame(animate);
     if (pivot.children.length) {
-      pivot.rotation.y = t * 0.00018 + index * 0.7;
-      pivot.rotation.x = -0.22 + Math.sin(t * 0.001 + index) * 0.035;
-      pivot.position.y = Math.sin(t * 0.0012 + index * 1.3) * 0.08;
+      if (hovered) {
+        pivot.rotation.y += 0.004;
+      }
       const hoverScale = hovered ? 1.08 : 1;
-      const floatScale = 1 + Math.sin(t * 0.001 + index) * 0.012;
-      pivot.scale.setScalar(baseScale * hoverScale * floatScale);
+      pivot.scale.setScalar(baseScale * hoverScale);
     }
-    renderer.render(scene, camera);
+    renderer?.render(scene, camera);
   }
   requestAnimationFrame(animate);
 
@@ -640,6 +1002,164 @@ function renderDeskThumb(container, desk, index) {
       container.style.width = `${width}px`;
       container.style.height = `${height}px`;
       updateCamera();
+    },
+    dispose() {
+      renderer?.dispose();
+    },
+  };
+}
+
+window.addEventListener('pagehide', () => {
+  thumbViews.forEach(view => view?.dispose?.());
+});
+
+function renderSavedThumbnail(container, desk, deskMeta, index) {
+  const image = document.createElement('img');
+  image.className = 'thumb-image';
+  image.alt = '';
+  image.src = getDriveApiMediaUrl(deskMeta.thumbnail_file_id);
+  container.prepend(image);
+  const silhouetteMaterial = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    side: THREE.DoubleSide,
+  });
+
+  let renderer = null;
+  let camera = null;
+  let pivot = null;
+  let hovered = false;
+  let loading = false;
+  let loaded = false;
+  let failed = false;
+  const originalMaterials = new Map();
+
+  image.addEventListener('error', () => {
+    container.classList.add('thumb-image-failed');
+    ensure3D();
+  });
+
+  function resize(width, height) {
+    container.style.width = `${width}px`;
+    container.style.height = `${height}px`;
+    if (!renderer || !camera) return;
+    renderer.setSize(width, height);
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  }
+
+  async function ensure3D() {
+    if (loaded || loading || failed) return;
+    loading = true;
+    container.classList.add('loading-3d');
+
+    renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.domElement.className = 'thumb-3d';
+    container.prepend(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100);
+    const pos = new THREE.Vector3(
+      parseFloat(deskMeta.thumb_cam_pos_x) || 0,
+      parseFloat(deskMeta.thumb_cam_pos_y) || 0,
+      parseFloat(deskMeta.thumb_cam_pos_z) || 0
+    );
+    const target = new THREE.Vector3(
+      parseFloat(deskMeta.thumb_cam_target_x) || 0,
+      parseFloat(deskMeta.thumb_cam_target_y) || 0,
+      parseFloat(deskMeta.thumb_cam_target_z) || 0
+    );
+    camera.position.copy(pos);
+    camera.lookAt(target);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const key = new THREE.DirectionalLight(0xffffff, 1);
+    key.position.set(2, 4, 3);
+    scene.add(key);
+
+    resize(container.clientWidth, container.clientHeight);
+
+    try {
+      const glbUrl = await fetchDriveBlobUrl(desk.drive_file_id);
+      await new Promise((resolve, reject) => {
+        new THREE.GLTFLoader().load(glbUrl, gltf => {
+          URL.revokeObjectURL(glbUrl);
+          const model = gltf.scene;
+          model.traverse(child => {
+            if (!child.isMesh) return;
+            originalMaterials.set(child.uuid, child.material);
+            child.material = silhouetteMaterial;
+          });
+          if (hovered) {
+            model.traverse(child => {
+              if (child.isMesh && originalMaterials.has(child.uuid)) {
+                child.material = originalMaterials.get(child.uuid);
+              }
+            });
+          }
+          model.updateMatrixWorld(true);
+          const center = new THREE.Box3().setFromObject(model).getCenter(new THREE.Vector3());
+          pivot = new THREE.Group();
+          pivot.position.copy(center);
+          model.position.sub(center);
+          pivot.add(model);
+          scene.add(pivot);
+          loaded = true;
+          container.classList.remove('loading-3d');
+          if (hovered || container.classList.contains('thumb-image-failed')) {
+            container.classList.add('show-3d');
+          }
+          resolve();
+        }, undefined, reject);
+      });
+    } catch (err) {
+      console.warn('hover GLB failed', desk.desk_id, err);
+      failed = true;
+      container.classList.remove('loading-3d');
+      container.classList.add('failed');
+      renderer.domElement.remove();
+      renderer.dispose();
+      renderer = null;
+      camera = null;
+    }
+
+    function animate(t) {
+      if (!document.body.contains(container) || failed) return;
+      requestAnimationFrame(animate);
+      if (hovered && pivot) pivot.rotation.y += 0.004;
+      renderer?.render(scene, camera);
+    }
+    requestAnimationFrame(animate);
+  }
+
+  container.addEventListener('mouseenter', () => {
+    if (declarationPrintSelecting) return;
+    hovered = true;
+    ensure3D();
+    pivot?.traverse(child => {
+      if (child.isMesh && originalMaterials.has(child.uuid)) {
+        child.material = originalMaterials.get(child.uuid);
+      }
+    });
+    if (loaded) container.classList.add('show-3d');
+  });
+  container.addEventListener('mouseleave', () => {
+    hovered = false;
+    pivot?.rotation.set(0, 0, 0);
+    pivot?.traverse(child => {
+      if (child.isMesh) child.material = silhouetteMaterial;
+    });
+    container.classList.remove('show-3d');
+  });
+
+  return {
+    container,
+    desk,
+    resize,
+    dispose() {
+      renderer?.dispose();
     },
   };
 }
